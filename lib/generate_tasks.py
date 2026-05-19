@@ -120,6 +120,64 @@ def summarize_domain(text, max_words=4):
     return 'funcionalidade'
 
 
+def extract_project_conventions(scan_data):
+    """Extrai convencoes do projeto a partir do scan de documentacao."""
+    docs = (scan_data or {}).get('projectDocs', {})
+    if not docs:
+        return ''
+
+    lines = []
+    found = False
+
+    # README.md - extrair nome do projeto
+    readme = docs.get('readme', '')
+    if readme:
+        for line in readme.split('\n'):
+            line = line.strip()
+            if line.startswith('# ') and len(line) > 3:
+                lines.append(f"Projeto: {line[2:].strip()}")
+                found = True
+                break
+
+    # Exemplos de classes do projeto
+    examples = {}
+    for key, label in [('controllerExamples', 'Controller'),
+                       ('serviceExamples', 'Service'),
+                       ('entityExamples', 'Entity')]:
+        vals = docs.get(key, [])
+        if vals and isinstance(vals, list):
+            examples[label] = [v.split('/')[-1] for v in vals[:3]]
+
+    if examples:
+        found = True
+        lines.append("Exemplos de classes no projeto:")
+        for label, names in examples.items():
+            lines.append(f"  - {label}: {', '.join(names)}")
+
+    # SDDs
+    sdds = docs.get('sdds', [])
+    if sdds and isinstance(sdds, list) and sdds:
+        found = True
+        lines.append(f"SDDs encontrados: {len(sdds)} arquivo(s)")
+        for s in sdds[:3]:
+            lines.append(f"  - {s}")
+
+    # AGENTS.md
+    agents = docs.get('agents', '')
+    if agents:
+        found = True
+        # Extrair primeiras linhas nao vazias
+        non_empty = [l.strip() for l in agents.split('\n') if l.strip()]
+        if non_empty:
+            preview = ' | '.join(non_empty[:2])
+            lines.append(f"AGENTS.md: {preview[:120]}")
+
+    if not found:
+        return ''
+
+    return '\n'.join(lines)
+
+
 # ---------------------------------------------------------------------------
 # Geracao de tasks por linguagem
 # ---------------------------------------------------------------------------
@@ -164,6 +222,9 @@ def java_tasks(config, scan_data, jira_data, keywords, ticket_id):
     precisa_export = keywords.get('needs_export', False)
     precisa_calculo = keywords.get('needs_calculation', False)
 
+    # Extrair convencoes do projeto para enriquecer observacoes
+    project_conventions = extract_project_conventions(scan_data)
+
     # ------------------------------------------------------------------
     # Task 1 — CRUD completo + validacoes + exportacao + testes
     # ------------------------------------------------------------------
@@ -192,6 +253,8 @@ def java_tasks(config, scan_data, jira_data, keywords, ticket_id):
         f"Veja controllers, services e entidades similares como referencia\n"
         f"Use @RequiredArgsConstructor, @Valid, ResponseEntity"
     )
+    if project_conventions:
+        obs_crud += f"\n\n--- Contexto do Projeto ---\n{project_conventions}"
 
     tasks.append(dict(**K, id=nid(),
         descricao=desc_crud,
@@ -203,21 +266,24 @@ def java_tasks(config, scan_data, jira_data, keywords, ticket_id):
     # Task 2 — Logica de processamento (opcional, se houver calculo)
     # ------------------------------------------------------------------
     if precisa_calculo:
+        obs_calculo = (
+            f"Pacote: {pkg}.service\n\n"
+            f"Implementar a logica de negocio principal:\n"
+            f"  - Algoritmo de calculo conforme requisitos\n"
+            f"  - Arredondamento e precisao numerica\n"
+            f"  - Atencao a regressao em funcionalidades existentes\n\n"
+            f"Testes (obrigatorios):\n"
+            f"  - Unitarios: cenario de calculo com valores conhecidos\n"
+            f"  - Comparacao com resultados esperados (casos reais)\n\n"
+            f"[Senior] Esta e a task de maior risco tecnico.\n"
+            f"Valide com casos reais antes de finalizar"
+        )
+        if project_conventions:
+            obs_calculo += f"\n\n--- Contexto do Projeto ---\n{project_conventions}"
         tasks.append(dict(**K, id=nid(),
             descricao=f"Implementar logica de processamento/calculo de {domain}",
             nivel='senior',
-            observacoes=(
-                f"Pacote: {pkg}.service\n\n"
-                f"Implementar a logica de negocio principal:\n"
-                f"  - Algoritmo de calculo conforme requisitos\n"
-                f"  - Arredondamento e precisao numerica\n"
-                f"  - Atencao a regressao em funcionalidades existentes\n\n"
-                f"Testes (obrigatorios):\n"
-                f"  - Unitarios: cenario de calculo com valores conhecidos\n"
-                f"  - Comparacao com resultados esperados (casos reais)\n\n"
-                f"[Senior] Esta e a task de maior risco tecnico.\n"
-                f"Valide com casos reais antes de finalizar"
-            ),
+            observacoes=obs_calculo,
             tipo='alterar-classe',
             dependeDe=[tasks[0]['id']]))
 

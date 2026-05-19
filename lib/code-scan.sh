@@ -283,6 +283,76 @@ find_similar_tickets() {
 # Scan principal
 # ============================================================
 
+# ============================================================
+# Scan de documentacao do projeto (README, AGENTS, SDDs)
+# ============================================================
+
+scan_project_docs() {
+    local project_dir="$1"
+
+    local docs_dir="$project_dir/docs"
+    [[ -d "$docs_dir" ]] || docs_dir=""
+
+    echo "{"
+
+    # README.md (primeiras 30 linhas)
+    local readme=""
+    if [[ -f "$project_dir/README.md" ]]; then
+        readme=$(head -30 "$project_dir/README.md" 2>/dev/null | python3 -c "
+import sys, json
+print(json.dumps(sys.stdin.read().strip()))
+")
+    fi
+    echo "\"readme\": $readme,"
+
+    # AGENTS.md (primeiras 30 linhas)
+    local agents=""
+    if [[ -f "$project_dir/AGENTS.md" ]]; then
+        agents=$(head -30 "$project_dir/AGENTS.md" 2>/dev/null | python3 -c "
+import sys, json
+print(json.dumps(sys.stdin.read().strip()))
+")
+    fi
+    echo "\"agents\": $agents,"
+
+    # Arquivos SDD encontrados
+    local sdds
+    sdds=$(find "$project_dir" -maxdepth 3 -name "*.sdd*" -o -name "SDD*" 2>/dev/null | head -10 | python3 -c "
+import sys, json
+paths = [l.strip() for l in sys.stdin if l.strip()]
+print(json.dumps(paths))
+")
+    echo "\"sdds\": $sdds,"
+
+    # Exemplos de classes (Controllers, Services, Entities)
+    local controllers
+    controllers=$(find "$project_dir/src/main/java" -name "*Controller.java" -type f 2>/dev/null | head -5 | python3 -c "
+import sys, json
+paths = [l.strip() for l in sys.stdin if l.strip()]
+print(json.dumps(paths))
+")
+    echo "\"controllerExamples\": $controllers,"
+
+    local services
+    services=$(find "$project_dir/src/main/java" -name "*Service.java" -type f 2>/dev/null | head -5 | python3 -c "
+import sys, json
+paths = [l.strip() for l in sys.stdin if l.strip()]
+print(json.dumps(paths))
+")
+    echo "\"serviceExamples\": $services,"
+
+    local entities
+    entities=$(find "$project_dir/src/main/java" -name "*Entity.java" -o -name "*Model.java" 2>/dev/null | head -5 | python3 -c "
+import sys, json
+paths = [l.strip() for l in sys.stdin if l.strip()]
+print(json.dumps(paths))
+")
+    echo "\"entityExamples\": $entities"
+
+    echo "}"
+}
+
+
 code_scan() {
     local project_dir="$1"
     local output_file="${2:-}"
@@ -304,6 +374,15 @@ code_scan() {
 
     local structure
     structure=$(scan_structure "$project_dir")
+
+    local docs_info
+    docs_info=$(scan_project_docs "$project_dir")
+
+    # Mesclar structure + docs_info (remover ultimo } do structure e concatenar)
+    structure="${structure%\}}"
+    structure="$structure,"
+    structure="$structure  \"projectDocs\": $docs_info"
+    structure="$structure}"
 
     if [[ -n "$output_file" ]]; then
         echo "$structure" > "$output_file"

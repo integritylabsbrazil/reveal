@@ -7,4 +7,4 @@ Lista de tickets documentados neste repositório.
 | [SPR-3417](./SPR-3417/) | (sem resumo) | 3 tarefas | 0/3 ⏳ |
 
 ---
-*Gerado em 2026-05-19 20:21:17*
+*Gerado em 2026-05-19 20:27:35*

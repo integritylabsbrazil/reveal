@@ -103,21 +103,65 @@ O que você quer fazer?
 
 ## 5. Geração da Documentação
 
-### 5.1. Analise o código fonte
+### 5.1. Leia a documentação do projeto alvo
+
+**REGRRA OBRIGATÓRIA:** Antes de gerar qualquer documento ou subtarefa,
+você DEVE ler a documentação do projeto alvo para entender suas
+convenções, padrões de código e arquitetura.
+
+Para cada projeto em `refine-config.local.json`:
+
+```bash
+# 1. Documentação do projeto
+ls <caminho-projeto>/README.md
+ls <caminho-projeto>/AGENTS.md
+ls <caminho-projeto>/docs/        2>/dev/null
+ls <caminho-projeto>/*.sdd        2>/dev/null
+ls <caminho-projeto>/*.sdd.*      2>/dev/null
+ls <caminho-projeto>/SDD*         2>/dev/null
+ls <caminho-projeto>/**/sdd*      2>/dev/null
+
+# 2. Estrutura e multi-módulo
+ls <caminho-projeto>/settings.gradle
+ls <caminho-projeto>/pom.xml
+ls <caminho-projeto>/package.json
+
+# 3. Padrões de código do projeto (controllers, services, entities)
+ls <caminho-projeto>/src/main/java/**/*Controller.java | head -5
+ls <caminho-projeto>/src/main/java/**/*Service.java   | head -5
+ls <caminho-projeto>/src/main/java/**/*Entity.java     | head -5
+```
+
+Extraia destas fontes:
+- **Convenções de nomenclatura**: como controllers, services, entities são nomeados
+- **Padrões de pacotes**: estrutura de pacotes (command/controller/service/repository)
+- **Padrões de endpoint**: como URLs são definidas (@RequestMapping, @PostMapping, etc.)
+- **Tratamento de erros**: como exceptions são lançadas e tratadas
+- **DTOs**: padrão de request/response, validações (@NotBlank, @NotNull, etc.)
+- **Anotações comuns**: @RequiredArgsConstructor, @Valid, @Slf4j, etc.
+
+Inclua estas descobertas no `observacoes` de cada subtarefa e no
+refinamento técnico, para que o dev tenha exemplos concretos do
+próprio projeto.
+
+### 5.2. Analise o código fonte
 
 Para cada projeto identificado como afetado:
 - Leia `settings.gradle` / `pom.xml` / `package.json` (multi-module?)
 - Mapeie pacotes com `ls src/main/java/...` ou `ls src/`
 - Identifique padrões de implementação em tickets similares
+- Leia uma classe de exemplo de cada tipo (Controller, Service, Entity, DTO)
 
-### 5.2. Gere os arquivos base
+### 5.3. Gere os arquivos base
 
 1. **`description.md`**: Conteúdo do Jira enriquecido com análise de negócio
-2. **`implementation-plan.md`**: Abordagem técnica, riscos, cronograma
+2. **`implementation-plan.md`**: Abordagem técnica com exemplos concretos
+   de: classes que serão criadas/alteradas, endpoints que serão expostos,
+   validações aplicadas, pacotes afetados
 3. **`roteiro-demo.md`**: Script de apresentação para o negócio
 4. **`demo-artifacts/`**: Artefatos da demonstração (Postman, SQL)
 
-### 5.3. Gere as subtarefas → `status-tasks.json`
+### 5.4. Gere as subtarefas → `status-tasks.json`
 
 Cada subtarefa deve ser:
 - **Vertical**: agrupa artefatos relacionados (ex: entidade + DTOs + repository em uma task)
@@ -125,6 +169,7 @@ Cada subtarefa deve ser:
 - **Validável**: compila, testa, pode ser verificada
 - **Associada a um projeto**: especifica em qual projeto implementar
 - **Nível de senioridade**: `nivel` (junior/pleno/senior) para orientar a alocação
+- **Baseada na documentação do projeto**: referências a classes/padrões reais
 
 Exemplo de `status-tasks.json`:
 
@@ -174,7 +219,7 @@ Exemplo de `status-tasks.json`:
 }
 ```
 
-### 5.4. Gere `contexto-implementacao.md`
+### 5.5. Gere `contexto-implementacao.md`
 
 Resumo visual com tabela de subtarefas, dependências e projetos afetados.
 
@@ -300,7 +345,7 @@ Tasks podem ser executadas em qualquer ordem, desde que as dependências estejam
 ### 9.1. Tipo: `criar-classe`
 
 ```
-1. Leia a implementação similar de referência
+1. Leia a implementação similar de referência (veja seção 5.1)
 2. Crie a classe no pacote apropriado
 3. Siga os padrões do projeto (anotações, extends, implements)
 4. Crie testes unitários equivalentes
@@ -319,10 +364,13 @@ Tasks podem ser executadas em qualquer ordem, desde que as dependências estejam
 ### 9.3. Tipo: `implementar` (servico + endpoint em uma task)
 
 ```
-1. Crie a classe de servico com as regras de negocio
-2. Crie o controller REST com os endpoints
-3. Conecte servico ao controller via injecao de dependencia
-4. Compile e teste o fluxo completo
+1. Leia a documentação do projeto (README, AGENTS.md, SDDs — seção 5.1)
+2. Leia uma classe de serviço e um controller existentes como referência
+3. Crie a classe de servico com as regras de negocio
+4. Crie o controller REST com os endpoints
+5. Conecte servico ao controller via injecao de dependencia
+6. Siga os padrões de nomenclatura, pacotes e anotações do projeto
+7. Compile e teste o fluxo completo
 ```
 
 ### 9.4. Tipo: `testes` (unitarios + integracao consolidados)
@@ -494,6 +542,8 @@ git commit -m "PROJ-X: Resumo do ticket"
 - [ ] Li `settings.gradle`/`pom.xml`/`package.json` dos projetos
 - [ ] Mapeei os pacotes de cada módulo
 - [ ] Identifiquei corretamente a ordem de dependência entre módulos
+- [ ] Li README.md, AGENTS.md e SDDs do projeto alvo
+- [ ] Extraí convenções de código (controllers, services, entities, endpoints)
 - [ ] As subtarefas cobrem todos os projetos afetados
 - [ ] Dependências entre subtarefas estão corretas
 
@@ -506,6 +556,8 @@ git commit -m "PROJ-X: Resumo do ticket"
 - [ ] `INDEX.md` reflete progresso atualizado
 - [ ] `implementation-plan.md` não referencia arquivos desatualizados
 - [ ] `roteiro-demo.md` está alinhado com o estado real
+- [ ] `observacoes` das subtarefas contêm exemplos concretos do projeto
+- [ ] Nomes de classes/pacotes mencionados existem de fato no código
 
 ---
 
