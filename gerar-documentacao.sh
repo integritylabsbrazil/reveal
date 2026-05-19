@@ -141,16 +141,21 @@ section "Pipeline de Documentacao — $TICKET_ID"
 
 ok "Iniciando pipeline: fetch → scan → perguntas → refinamento → validacao"
 
-# Etapas
+# Etapas (refinement temporario sem tasks — ainda nao geradas)
 run bash "$SCRIPT_DIR/refine-ticket.sh" "$TICKET_ID" --refine
 
 # ============================================================
-# 5. Geracao automatica de subtarefas
+# 5. Geracao automatica de subtarefas + re-refinamento
 # ============================================================
 if [[ -f "$SCRIPT_DIR/lib/generate-tasks.sh" && -f "$TICKET_DIR/jira-data.json" ]]; then
     section "Geracao de Subtarefas"
     run bash "$SCRIPT_DIR/lib/generate-tasks.sh" "$TICKET_DIR"
     ok "Subtarefas geradas em status-tasks.json"
+
+    # Re-gerar refinamento agora com as subtarefas
+    section "Re-gerando refinamento com subtarefas"
+    run bash "$SCRIPT_DIR/refine-ticket.sh" "$TICKET_ID" --refinement 2>/dev/null || true
+    ok "Refinamento atualizado com subtarefas"
 fi
 
 # ============================================================
