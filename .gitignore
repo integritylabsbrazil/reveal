@@ -12,6 +12,10 @@ refine-config.local.json
 # Anexos binarios de tickets (NUNCA commitar)
 tickets/*/attachments/
 
+# Python cache
+__pycache__/
+*.pyc
+
 # Temporários
 tmp/
 *.tmp

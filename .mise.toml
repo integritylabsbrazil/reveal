@@ -1,0 +1,13 @@
+# Reveal — Ferramentas necessárias para executar o pipeline de refinamento
+# Instale com: mise install
+# Veja: https://mise.jdx.dev
+
+[tools]
+# Processamento de JSON nas consultas ao Jira e geração de documentos
+jq = "latest"
+
+# Scripts de automação (generate_tasks.py, render_template.py)
+python = "3.12"
+
+# Requisições HTTP para API do Jira
+curl = "latest"
