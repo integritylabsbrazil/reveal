@@ -1,0 +1,33 @@
+# Reveal — .gitignore
+
+# Dados de clientes (NUNCA commitar dados reais de tickets)
+tickets/*/
+!tickets/_template/
+!tickets/INDEX.md
+
+# Configuração local (cópia de refine-config.json com dados reais)
+refine-config.local.json
+*.local.*
+
+# Temporários
+tmp/
+*.tmp
+
+# Credenciais (~/.jira-credentials fica no home, não no repo)
+.jira-credentials
+**/credentials*
+**/secrets*
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

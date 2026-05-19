@@ -1,0 +1,68 @@
+# Refinamento Técnico — PROJ-123
+
+**Título do ticket — exemplo genérico**
+
+---
+
+## 1. Dados do Ticket
+
+| Campo | Valor |
+|-------|-------|
+| **Ticket** | PROJ-123 |
+| **Tipo** | Story |
+| **Prioridade** | Medium |
+| **Status** | To Do |
+| **Épico** | PROJ-100: Épico principal |
+
+## 2. Projetos e Módulos Afetados
+
+### Projeto: meu-projeto-backend
+
+| Atributo | Valor |
+|----------|-------|
+| **Linguagem** | Java |
+| **Build** | Gradle |
+
+## 3. Visão Geral
+
+**Tipo de alteração:** criação, api
+
+## 4. Fluxo de Dados (Proposto)
+
+```
+[Entrada] → [Validação] → [Processamento] → [Resposta]
+```
+
+## 5. Decisões Técnicas Pendentes
+
+| Decisão | Impacto | Área |
+|---------|---------|------|
+| A chamada deve ser síncrona ou assíncrona? | Alto | Arquitetura |
+
+## 6. Riscos Técnicos
+
+| Risco | Probabilidade | Impacto | Mitigação |
+|-------|-------------|---------|-----------|
+| Dependência externa indisponível | Média | Alto | Retry + fallback |
+
+## 7. Subtarefas (Proposta)
+
+| # | Projeto | Descrição | Status | Tipo |
+|---|---------|-----------|--------|------|
+| 0001 | meu-projeto-backend | Criar interface de serviço | pendente | criar-classe |
+| 0002 | meu-projeto-backend | Implementar classe concreta | pendente | criar-classe |
+| 0003 | meu-projeto-backend | Criar endpoint REST | pendente | adicionar-endpoint |
+
+## 8. Checklist de Implementação
+
+- [ ] Análise validada com PO
+- [ ] Perguntas respondidas
+- [ ] Modelos criados
+- [ ] Interface definida
+- [ ] Endpoint implementado
+- [ ] Testes unitários
+- [ ] Documentação atualizada
+
+---
+
+*Documento gerado em 2026-01-01T00:00:00 pelo Reveal*

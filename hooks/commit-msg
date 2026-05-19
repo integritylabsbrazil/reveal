@@ -1,0 +1,37 @@
+#!/bin/bash
+# ============================================================
+# commit-msg hook
+# Valida que a mensagem do commit segue o padrao do projeto.
+#
+# Formatos aceitos:
+#   TICKETID-TASKID: descricao           (commits de task)
+#   TICKETID: descricao                  (commits de MR/ticket)
+#   wip: descricao                       (commits intermediarios)
+#   fix: descricao                       (correcoes intermediarias)
+# ============================================================
+
+TICKET_REGEX='[A-Z][A-Z0-9]+-[0-9]+'
+COMMIT_MSG=$(cat "$1")
+
+# Permite mensagens wip:/fix:/refactor: etc (commits intermediarios)
+if echo "$COMMIT_MSG" | grep -qE '^(wip|fix|refactor|test|docs|chore):'; then
+    exit 0
+fi
+
+# Valida que contem ticket ID (com ou sem task)
+if ! echo "$COMMIT_MSG" | grep -qE "$TICKET_REGEX"; then
+    echo "============================================"
+    echo " ERRO: Commit message nao contem ticket ID"
+    echo "============================================"
+    echo ""
+    echo " Formatos aceitos:"
+    echo "   PROJ-123-0001: Criar modelos             (commit de task)"
+    echo "   PROJ-123: Titulo do ticket               (commit de MR)"
+    echo "   wip: inicio implementacao               (commit intermediario)"
+    echo "   fix: ajuste campo taxpayer-number        (correcao)"
+    echo ""
+    echo " Exemplo: PROJ-123-0001: Criar modelos de dominio"
+    exit 1
+fi
+
+exit 0

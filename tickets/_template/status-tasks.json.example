@@ -1,0 +1,49 @@
+{
+  "ticketId": "PROJ-123",
+  "ultimaAtualizacao": "2026-01-01T00:00:00",
+  "projetosEnvolvidos": [
+    "meu-projeto-backend"
+  ],
+  "tarefas": [
+    {
+      "id": "0001",
+      "projeto": "meu-projeto-backend",
+      "descricao": "Criar interface de servico com metodo de exemplo",
+      "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "tipo": "criar-classe",
+      "dependeDe": [],
+      "bloqueadoPor": null,
+      "status": "pendente"
+    },
+    {
+      "id": "0002",
+      "projeto": "meu-projeto-backend",
+      "descricao": "Implementar classe concreta do servico",
+      "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "tipo": "criar-classe",
+      "dependeDe": ["0001"],
+      "bloqueadoPor": null,
+      "status": "pendente"
+    },
+    {
+      "id": "0003",
+      "projeto": "meu-projeto-backend",
+      "descricao": "Criar endpoint REST para a nova funcionalidade",
+      "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "tipo": "adicionar-endpoint",
+      "dependeDe": ["0002"],
+      "bloqueadoPor": null,
+      "status": "pendente"
+    },
+    {
+      "id": "0004",
+      "projeto": "meu-projeto-backend",
+      "descricao": "Escrever testes unitarios para servico e endpoint",
+      "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "tipo": "testes-unitarios",
+      "dependeDe": ["0001", "0003"],
+      "bloqueadoPor": null,
+      "status": "pendente"
+    }
+  ]
+}

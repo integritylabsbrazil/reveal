@@ -1,0 +1,19 @@
+# Perguntas para o Negócio — PROJ-123
+
+**Resumo:** Título do ticket — exemplo genérico
+
+## Pendências de Especificação
+
+As perguntas abaixo devem ser respondidas pelo PO/analista de negócio
+antes de iniciar a implementação.
+
+| # | Pergunta | Categoria | Impacto | Prazo | Status | Resposta |
+|---|----------|-----------|---------|-------|--------|----------|
+| 1 | Quais são os critérios de aceitação detalhados? | Especificação | Alto | Pré-dev | 🔴 Aberta | |
+| 2 | Existe contrato/swagger da API de integração? | Integração | Alto | Pré-dev | 🟡 Pendente | |
+| 3 | Em caso de erro/timeout, qual o comportamento esperado? | Tratamento Erros | Alto | Pré-dev | 🔴 Aberta | |
+| 4 | Este escopo inclui frontend ou apenas backend? | Escopo | Alto | Pré-dev | 🔴 Aberta | |
+
+---
+
+*Perguntas geradas em 2026-01-01T00:00:00*

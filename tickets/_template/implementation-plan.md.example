@@ -1,0 +1,55 @@
+# Plano de Implementação — PROJ-123
+
+## Visão Geral
+
+Descrever a visão geral da implementação.
+
+## Abordagem Técnica
+
+Descrever a abordagem técnica (padrões arquiteturais, camadas, etc.).
+
+## Componentes a Modificar/Criar
+
+### Módulo A (ex: core)
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `src/main/java/.../...Service.java` | Criar | Interface do serviço |
+| `src/main/java/.../...ServiceImpl.java` | Criar | Implementação |
+
+### Módulo B (ex: api)
+
+| Arquivo | Ação | Descrição |
+|---------|------|-----------|
+| `src/main/java/.../...Controller.java` | Criar | Endpoint REST |
+| `src/main/java/.../...DTO.java` | Criar | DTO de request/response |
+
+## Fluxo da Implementação
+
+```
+[Entrada] → [Validação] → [Processamento] → [Persistência] → [Resposta]
+```
+
+## Riscos e Mitigações
+
+| Risco | Impacto | Probabilidade | Mitigação |
+|-------|---------|---------------|-----------|
+| Risco 1 | Alto | Média | Mitigação 1 |
+| Risco 2 | Médio | Baixa | Mitigação 2 |
+
+## Dependências
+
+- Lista de dependências externas
+
+## Considerações de Implantação
+
+- Considerações de deploy
+
+## Plano de Rollback
+
+1. Passo 1
+2. Passo 2
+
+---
+
+*Template gerado pelo Reveal. Substituir pelos dados reais do ticket.*

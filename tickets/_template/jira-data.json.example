@@ -1,0 +1,53 @@
+{
+  "ticketId": "PROJ-123",
+  "fetchTimestamp": "2026-01-01T00:00:00",
+  "basic": {
+    "summary": "Título do ticket — exemplo genérico",
+    "description": "Descrição detalhada do ticket obtida via API Jira.",
+    "descriptionRendered": "<p>Descrição renderizada em HTML</p>",
+    "priority": "Medium",
+    "status": "To Do",
+    "issuetype": "Story",
+    "assignee": "",
+    "reporter": "",
+    "created": "2026-01-01T00:00:00.000-0300",
+    "updated": "2026-01-01T00:00:00.000-0300",
+    "labels": [],
+    "components": [],
+    "fixVersions": ["Release 1.0"]
+  },
+  "epic": {
+    "key": "PROJ-100",
+    "summary": "Épico principal",
+    "status": "In Progress",
+    "priority": "Medium",
+    "issuetype": "Epic"
+  },
+  "linkedIssues": [
+    {
+      "id": "12345",
+      "type": "Relates",
+      "inward": "PROJ-120",
+      "outward": null,
+      "direction": "inward",
+      "summary": "Ticket relacionado",
+      "status": "Done"
+    }
+  ],
+  "subtasks": [
+    {
+      "key": "PROJ-124",
+      "summary": "Subtarefa 1",
+      "status": "To Do",
+      "assignee": null,
+      "priority": "Medium"
+    }
+  ],
+  "comments": [],
+  "changelog": [],
+  "attachments": [],
+  "agile": {
+    "sprint": null,
+    "storyPoints": null
+  }
+}

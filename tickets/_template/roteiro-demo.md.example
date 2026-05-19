@@ -1,0 +1,43 @@
+# Roteiro de Demo — PROJ-123
+
+## Título do ticket — exemplo genérico
+
+---
+
+## Cenário 1: Fluxo de Sucesso
+
+| Item | Detalhe |
+|------|---------|
+| **Ferramenta** | Postman |
+| **Pré-condição** | Serviço rodando localmente |
+
+**Passo a passo:**
+1. Executar request "01 - Cenário Feliz"
+2. Verificar HTTP 200
+
+---
+
+## Cenário 2: Fluxo de Erro
+
+| Item | Detalhe |
+|------|---------|
+| **Ferramenta** | Postman + Logs |
+| **Pré-condição** | Serviço com toggle de erro habilitado |
+
+**Passo a passo:**
+1. Executar request que força erro
+2. Mostrar log de erro
+3. Mostrar que o sistema não quebrou
+
+---
+
+## Resumo dos Artefatos
+
+| Artefato | Descrição |
+|----------|-----------|
+| Postman Collection | Requests por cenário |
+| Postman Environment | Variáveis de ambiente |
+
+---
+
+*Template gerado pelo Reveal.*

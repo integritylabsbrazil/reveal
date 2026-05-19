@@ -1,0 +1,44 @@
+{
+  "nome": "Refine Ticket — Configuração",
+  "versao": "1.0",
+  "descricao": "Configuracao generica para a ferramenta de refinamento tecnico. Deve ser copiada para refine-config.local.json e ajustada por projeto.",
+
+  "jira": {
+    "baseUrl": "https://seudominio.atlassian.net",
+    "apiVersion": "3",
+    "agileApiVersion": "1.0",
+    "projectPrefixes": ["PROJ"],
+    "expandFields": ["renderedFields", "names", "schema", "changelog"]
+  },
+
+  "credentialSources": [
+    "JIRA_USER + JIRA_TOKEN (env vars)",
+    "~/.jira-credentials (formato: usuario:token)"
+  ],
+
+  "projects": [
+    {
+      "name": "backend-java",
+      "path": "../projetos/backend-java",
+      "language": "java",
+      "buildTool": "gradle",
+      "description": "Projeto Java backend principal"
+    },
+    {
+      "name": "frontend-web",
+      "path": "../projetos/frontend-web",
+      "language": "javascript",
+      "buildTool": "npm",
+      "description": "Aplicacao frontend React"
+    }
+  ],
+
+  "templates": {
+    "questions": "./templates/perguntas-negocio-template.md",
+    "refinement": "./templates/refinamento-tecnico-template.md"
+  },
+
+  "output": {
+    "ticketsDir": "./tickets"
+  }
+}

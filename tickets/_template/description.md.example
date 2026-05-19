@@ -1,0 +1,46 @@
+# PROJ-123: Título da História
+
+## Resumo
+
+**Historia** | **Medium** | **A Fazer** | **Release 1.0.0**
+
+**Epic Parent:** PROJ-100 — Épico principal
+
+**Responsável:** — | **Solicitante:** —
+
+> **Estado:** Pendente de refinamento
+
+---
+
+## História de Usuário
+
+> **Yo como:** [ator/papel]
+> **Quiero:** [funcionalidade desejada]
+> **Para:** [benefício/razão]
+
+---
+
+## Contexto de Negócio
+
+Descrever aqui o contexto de negócio, motivação e impacto.
+
+---
+
+## Critérios de Aceitação
+
+### CA1: [Título do critério]
+[Dado / Quando / Então]
+
+### CA2: [Título do critério]
+[Dado / Quando / Então]
+
+---
+
+## Observações
+
+- [Observação 1]
+- [Observação 2]
+
+---
+
+*Template gerado pelo Reveal. Substituir os valores de exemplo pelos dados reais do ticket.*
