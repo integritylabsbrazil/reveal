@@ -70,7 +70,10 @@ jira_api_get_paginated() {
     local first=true
 
     while true; do
-        local path="${base_path}${base_path%%\?*}$( [[ "$base_path" == *\?* ]] && echo "&" || echo "?")startAt=${start_at}&maxResults=${max_results}"
+        local base="${base_path%%\?*}"
+        local sep="?"
+        [[ "$base_path" == *\?* ]] && sep="&"
+        local path="${base}${sep}startAt=${start_at}&maxResults=${max_results}"
         local response
         response=$(jira_api_get "$path") || return 1
         if [[ -z "$response" ]]; then
@@ -103,14 +106,27 @@ jira_deep_fetch() {
     local output_dir="${2:-.}"
 
     load_credentials || return 1
+    export JIRA_USER JIRA_TOKEN
 
     log_info "Iniciando deep fetch de $ticket_id"
+
+    # Diretorio temporario para arquivos intermediarios
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
 
     # 1. Dados basicos do ticket
     log_info "Buscando dados basicos..."
     local basic_data
     basic_data=$(jira_api_get "/rest/api/${JIRA_API_VERSION}/issue/${ticket_id}?expand=renderedFields,changelog,names,schema") || {
-        log_error "Falha ao buscar ticket $ticket_id"
+        local http_code
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" -u "$JIRA_USER:$JIRA_TOKEN" \
+            "${JIRA_BASE}/rest/api/${JIRA_API_VERSION}/issue/${ticket_id}" 2>/dev/null || echo "000")
+        log_error "Falha ao buscar ticket $ticket_id (HTTP $http_code)"
+        case "$http_code" in
+            401|403) log_warn "  Possivel causa: Token expirado ou invalido. Regere em https://id.atlassian.com/manage/api-tokens" ;;
+            404)     log_warn "  Possivel causa: Ticket '$ticket_id' nao existe ou projeto errado. Verifique o ID." ;;
+            000)     log_warn "  Possivel causa: URL base '$JIRA_BASE' inacessivel ou credenciais incorretas." ;;
+        esac
         return 1
     }
     log_ok "Dados basicos obtidos"
@@ -209,65 +225,143 @@ jira_deep_fetch() {
     attach_count=$(echo "$attachments" | jq 'length')
     log_ok "Anexos: $attach_count"
 
+    # 7.5. Download de anexos (com dedup por MD5)
+    local attach_dir="$output_dir/attachments"
+    local updated_attachments
+    updated_attachments=$(echo "$attachments" | python3 -c "
+import sys, json, hashlib, os, subprocess
+
+data = json.load(sys.stdin)
+if not data:
+    print(json.dumps(data))
+    sys.exit(0)
+
+attach_dir = os.path.join('$attach_dir')
+os.makedirs(attach_dir, exist_ok=True)
+
+# Track already-seen MD5s to avoid duplicates
+seen_md5 = {}
+result = []
+
+for att in data:
+    entry = dict(att)
+    content_url = att.get('contentUrl', '')
+    filename = att.get('filename', 'unknown')
+    
+    if not content_url:
+        entry['downloadedPath'] = None
+        entry['downloadError'] = 'no contentUrl'
+        result.append(entry)
+        continue
+    
+    # Download to temp
+    tmp = os.path.join(attach_dir, '.tmp_' + filename)
+    try:
+        # Use curl with auth from env
+        env = os.environ.copy()
+        user = env.get('JIRA_USER', '')
+        token = env.get('JIRA_TOKEN', '')
+        subprocess.run(
+            ['curl', '-sL', '-o', tmp, '-u', f'{user}:{token}', content_url],
+            check=True, capture_output=True, timeout=30
+        )
+    except Exception as e:
+        entry['downloadedPath'] = None
+        entry['downloadError'] = str(e)
+        result.append(entry)
+        continue
+    
+    # Calculate MD5
+    md5 = hashlib.md5()
+    with open(tmp, 'rb') as f:
+        for chunk in iter(lambda: f.read(65536), b''):
+            md5.update(chunk)
+    md5_hex = md5.hexdigest()
+    
+    # Dedup: check if we already have this file
+    if md5_hex in seen_md5:
+        os.remove(tmp)
+        entry['downloadedPath'] = seen_md5[md5_hex]
+        entry['md5'] = md5_hex
+        result.append(entry)
+        continue
+    
+    # Unique file: move to final name
+    final_path = os.path.join(attach_dir, filename)
+    # Handle name collision
+    counter = 1
+    while os.path.exists(final_path):
+        name, ext = os.path.splitext(filename)
+        final_path = os.path.join(attach_dir, f'{name}_{counter}{ext}')
+        counter += 1
+    
+    os.rename(tmp, final_path)
+    seen_md5[md5_hex] = final_path
+    entry['downloadedPath'] = final_path
+    entry['md5'] = md5_hex
+    result.append(entry)
+
+print(json.dumps(result))
+") || attachments="$attachments"  # fallback: keep original if python fails
+
+    # Save updated attachments back to temp file
+    if [[ -n "$updated_attachments" && "$updated_attachments" != "null" ]]; then
+        attachments="$updated_attachments"
+        echo "$attachments" > "$tmp_dir/attachments.json"
+        local unique_count
+        unique_count=$(echo "$attachments" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+seen = set()
+for att in data:
+    p = att.get('downloadedPath')
+    if p:
+        seen.add(p)
+print(len(seen))
+" 2>/dev/null || echo "?")
+        log_ok "Anexos baixados: $unique_count arquivos unicos em $attach_dir"
+    fi
+
     # 8. Dados ageis (sprint, story points) via API Agile
     log_info "Buscando dados ageis..."
     local agile_data="{}"
     local agile_response
     agile_response=$(jira_api_get "/rest/agile/${JIRA_AGILE_VERSION}/issue/${ticket_id}") || agile_response=""
     if [[ -n "$agile_response" ]]; then
-        agile_data=$(echo "$agile_response" | jq -c '{
-            sprint: (.fields.sprint // .fields.customfield_10007 // null),
-            storyPoints: (.fields.storyPoints // .fields.customfield_10004 // null),
-            epic: (.fields.epic // null)
-        }' 2>/dev/null || echo "{}")
+        agile_data=$(echo "$agile_response" | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    print('{\"sprint\": null, \"storyPoints\": null, \"epic\": null}')
+    sys.exit(0)
+fields = data.get('fields', {})
+print(json.dumps({
+    'sprint': fields.get('sprint') or fields.get('customfield_10007'),
+    'storyPoints': fields.get('storyPoints') or fields.get('customfield_10004'),
+    'epic': fields.get('epic')
+}))
+" 2>/dev/null || echo '{"sprint":null,"storyPoints":null,"epic":null}')
     fi
     log_ok "Dados ageis obtidos"
 
-    # 9. Montar JSON completo
+    # 9. Salvar dados em arquivos temporarios para evitar limites de ARG_MAX
+    echo "$basic_data" > "$tmp_dir/basic.json"
+    echo "${parent_epic_data:-null}" > "$tmp_dir/epic.json"
+    echo "${linked_issues:-[]}" > "$tmp_dir/linked.json"
+    echo "${subtasks:-[]}" > "$tmp_dir/subtasks.json"
+    echo "${comments:-[]}" > "$tmp_dir/comments.json"
+    echo "${changelog:-[]}" > "$tmp_dir/changelog.json"
+    echo "${attachments:-[]}" > "$tmp_dir/attachments.json"
+    echo "${agile_data:-{}}" > "$tmp_dir/agile.json"
+
+    local lib_dir
+    lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     local full_data
-    full_data=$(jq -n \
-        --arg ticketId "$ticket_id" \
-        --argjson basic "$basic_data" \
-        --argjson parentEpic "${parent_epic_data:-null}" \
-        --argjson linked "$linked_issues" \
-        --argjson subtasks "$subtasks" \
-        --argjson comments "$comments" \
-        --argjson changelog "$changelog" \
-        --argjson attachments "$attachments" \
-        --argjson agile "$agile_data" \
-        '{
-            ticketId: $ticketId,
-            fetchTimestamp: (now | strftime("%Y-%m-%dT%H:%M:%S")),
-            basic: {
-                summary: ($basic.fields.summary // ""),
-                description: ($basic.fields.description // ""),
-                descriptionRendered: ($basic.renderedFields.description // ""),
-                priority: ($basic.fields.priority.name // ""),
-                status: ($basic.fields.status.name // ""),
-                issuetype: ($basic.fields.issuetype.name // ""),
-                assignee: ($basic.fields.assignee.displayName // ""),
-                reporter: ($basic.fields.reporter.displayName // ""),
-                created: ($basic.fields.created // ""),
-                updated: ($basic.fields.updated // ""),
-                labels: ($basic.fields.labels // []),
-                components: ([$basic.fields.components[]?.name // empty]),
-                fixVersions: ([$basic.fields.fixVersions[]?.name // empty])
-            },
-            epic: (if $parentEpic then {
-                key: ($parentEpic.key // ""),
-                summary: ($parentEpic.fields.summary // ""),
-                status: ($parentEpic.fields.status.name // ""),
-                priority: ($parentEpic.fields.priority.name // ""),
-                issuetype: ($parentEpic.fields.issuetype.name // "")
-            } else null end),
-            linkedIssues: $linked,
-            subtasks: $subtasks,
-            comments: $comments,
-            changelog: $changelog,
-            attachments: $attachments,
-            agile: $agile,
-            rawResponse: $basic
-        }')
+    full_data=$(python3 "$lib_dir/assemble_jira.py" \
+        "$ticket_id" "$tmp_dir")
+
+    rm -rf "$tmp_dir"
 
     # 10. Salvar
     mkdir -p "$output_dir"
@@ -296,6 +390,18 @@ jira_deep_fetch() {
         desc_html=$(echo "$full_data" | jq -r '.basic.descriptionRendered // .basic.description // "*Sem descricao*"')
         echo "$desc_html" | sed 's/<[^>]*>//g' | sed '/^$/N;/^\n$/D'
         echo ""
+
+        # Campos personalizados
+        local custom_fields
+        custom_fields=$(echo "$full_data" | jq -r '.customFields | to_entries[] | "| \(.value.name) | \(.value.value) |"' 2>/dev/null || true)
+        if [[ -n "$custom_fields" ]]; then
+            echo "## Campos Personalizados"
+            echo ""
+            echo "| Campo | Valor |"
+            echo "|-------|-------|"
+            echo "$custom_fields"
+            echo ""
+        fi
 
         local epic_key
         epic_key=$(echo "$full_data" | jq -r '.epic.key // ""')

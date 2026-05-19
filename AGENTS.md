@@ -14,7 +14,7 @@ reveal/
 ├── README.md
 ├── refine-config.json            ← Configuração (Jira, projetos)
 ├── refine-ticket.sh              ← Orquestrador principal
-├── create-ticket-doc.sh          ← Script de fetch Jira (legado)
+├── create-ticket-doc.sh          ← [DEPRECATED] Script de fetch Jira legado
 ├── generate-context.sh           ← Gera contexto-implementacao.md
 ├── generate-index.sh             ← Regenera INDEX.md
 ├── validate-ticket.sh            ← Valida consistência entre docs
@@ -23,7 +23,9 @@ reveal/
 │   ├── jira-fetch.sh             ← Deep fetch Jira
 │   ├── code-scan.sh              ← Scan de código multi-linguagem
 │   ├── generate-questions.sh     ← Perguntas para o negócio
-│   └── generate-refinement.sh    ← Refinamento técnico
+│   ├── generate-refinement.sh    ← Refinamento técnico
+│   ├── generate-tasks.sh         ← Wrapper shell para generate-tasks.py
+│   └── generate_tasks.py         ← Gera status-tasks.json automaticamente
 │
 ├── templates/
 │   ├── perguntas-negocio-template.md
@@ -118,10 +120,11 @@ Para cada projeto identificado como afetado:
 ### 5.3. Gere as subtarefas → `status-tasks.json`
 
 Cada subtarefa deve ser:
-- **Atômica**: faz uma coisa só (criar classe, alterar método, escrever testes)
+- **Vertical**: agrupa artefatos relacionados (ex: entidade + DTOs + repository em uma task)
 - **Executável**: descrição clara do que precisa ser feito
 - **Validável**: compila, testa, pode ser verificada
 - **Associada a um projeto**: especifica em qual projeto implementar
+- **Nível de senioridade**: `nivel` (junior/pleno/senior) para orientar a alocação
 
 Exemplo de `status-tasks.json`:
 
@@ -136,8 +139,9 @@ Exemplo de `status-tasks.json`:
     {
       "id": "0001",
       "projeto": "meu-projeto-backend",
-      "descricao": "Criar interface de servico para nova funcionalidade",
+      "descricao": "Criar entidade, DTOs e repository",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "nivel": "junior",
       "tipo": "criar-classe",
       "dependeDe": [],
       "bloqueadoPor": null,
@@ -146,9 +150,10 @@ Exemplo de `status-tasks.json`:
     {
       "id": "0002",
       "projeto": "meu-projeto-backend",
-      "descricao": "Implementar classe concreta do servico com regras de negocio",
+      "descricao": "Criar servico com regras de negocio e endpoint REST",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "tipo": "criar-classe",
+      "nivel": "pleno",
+      "tipo": "implementar",
       "dependeDe": ["0001"],
       "bloqueadoPor": null,
       "status": "pendente"
@@ -156,9 +161,10 @@ Exemplo de `status-tasks.json`:
     {
       "id": "0003",
       "projeto": "meu-projeto-backend",
-      "descricao": "Criar endpoint REST para expor a funcionalidade",
+      "descricao": "Escrever testes unitarios e de integracao",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "tipo": "adicionar-endpoint",
+      "nivel": "pleno",
+      "tipo": "testes",
       "dependeDe": ["0002"],
       "bloqueadoPor": null,
       "status": "pendente"
@@ -166,18 +172,9 @@ Exemplo de `status-tasks.json`:
     {
       "id": "0004",
       "projeto": "meu-projeto-backend",
-      "descricao": "Escrever testes unitarios para servico e endpoint",
+      "descricao": "Preparar roteiro de demo e collection Postman",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "tipo": "testes-unitarios",
-      "dependeDe": ["0001", "0003"],
-      "bloqueadoPor": null,
-      "status": "pendente"
-    },
-    {
-      "id": "0005",
-      "projeto": "meu-projeto-backend",
-      "descricao": "Preparar roteiro de demo e collection Postman para apresentacao",
-      "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "nivel": "junior",
       "tipo": "demo",
       "dependeDe": ["0003"],
       "bloqueadoPor": null,
@@ -330,21 +327,22 @@ Tasks podem ser executadas em qualquer ordem, desde que as dependências estejam
 4. Teste com WireMock ou similar
 ```
 
-### 9.3. Tipo: `testes-unitarios`
+### 9.3. Tipo: `implementar` (servico + endpoint em uma task)
 
 ```
-1. Localize a classe de teste existente ou crie uma nova
+1. Crie a classe de servico com as regras de negocio
+2. Crie o controller REST com os endpoints
+3. Conecte servico ao controller via injecao de dependencia
+4. Compile e teste o fluxo completo
+```
+
+### 9.4. Tipo: `testes` (unitarios + integracao consolidados)
+
+```
+1. Localize ou crie as classes de teste
 2. Use o mesmo framework de mock da base
-3. Cubra: sucesso, erro de conexão, timeout, HTTP 4xx, HTTP 5xx
-4. Siga o padrão de nomenclatura visto em outros testes
-```
-
-### 9.4. Tipo: `testes-integracao`
-
-```
-1. Configure ambiente de teste (WireMock, banco em memória, etc.)
-2. Teste o fluxo completo: entrada → processamento → saída
-3. Verifique logs, exceções, rollbacks
+3. Cubra: sucesso, erro de validacao, bloqueio, fluxo completo
+4. Configure ambiente de teste se necessario (WireMock, H2)
 ```
 
 ### 9.5. Tipo: `demo`
@@ -374,12 +372,86 @@ O agente SEMPRE:
 2. **Executa** a ação
 3. **Atualiza** `status-tasks.json` com o novo estado
 4. **Sincroniza** `contexto-implementacao.md`
+5. **Valida consistência** entre todos os documentos (ver seção 10.1)
 
 ```bash
 ./generate-context.sh TICKET_ID
 ./validate-ticket.sh TICKET_ID
 ./generate-index.sh
 ```
+
+### 10.1. Verificação Obrigatória de Consistência — Pós-Toda-Ação
+
+Após **qualquer** ação (gerar documentação, implementar task, atualizar status), o agente DEVE executar esta verificação de consistência. Ela detecta divergências como "em um lugar tem 7 tasks, em outro tem 16".
+
+#### 10.1.1. Check 1 — Contagem de tasks em `status-tasks.json`
+
+```bash
+jq '.tarefas | length' tickets/TICKET_ID/status-tasks.json
+```
+Esperado: número inteiro positivo. Se for 0 ou null → erro grave.
+
+#### 10.1.2. Check 2 — `contexto-implementacao.md` reflete o mesmo número
+
+```bash
+CONTAGEM_JSON=$(jq '.tarefas | length' tickets/TICKET_ID/status-tasks.json)
+CONTAGEM_MD=$(grep -c '| *[0-9]\{4\} *|' tickets/TICKET_ID/contexto-implementacao.md 2>/dev/null || echo 0)
+if [ "$CONTAGEM_JSON" -ne "$CONTAGEM_MD" ]; then
+  echo "ERRO: status-tasks.json tem $CONTAGEM_JSON tasks, contexto-implementacao.md mostra $CONTAGEM_MD"
+  echo "Execute: ./generate-context.sh TICKET_ID para sincronizar"
+fi
+```
+
+#### 10.1.3. Check 3 — Refinamento não referencia dados desatualizados
+
+```bash
+REF_FILE="tickets/TICKET_ID/refinamento-tecnico.md"
+if [ -f "$REF_FILE" ]; then
+  REF_TASKS=$(grep -c '| *[0-9]\{4\} *|' "$REF_FILE" 2>/dev/null || echo 0)
+  if [ "$CONTAGEM_JSON" -ne "$REF_TASKS" ]; then
+    echo "AVISO: refinamento-tecnico.md tem $REF_TASKS tasks, status-tasks.json tem $CONTAGEM_JSON"
+    echo "Regenere o refinamento: ./refine-ticket.sh TICKET_ID --refinement"
+  fi
+fi
+```
+
+#### 10.1.4. Check 4 — Nenhum documento órfão (arquivo sem conteúdo)
+
+```bash
+for f in description.md implementation-plan.md roteiro-demo.md jira-summary.md; do
+  fpath="tickets/TICKET_ID/$f"
+  if [ -f "$fpath" ] && [ ! -s "$fpath" ]; then
+    echo "ERRO: $fpath está vazio!"
+  fi
+done
+```
+
+#### 10.1.5. Check 5 — Dependências entre tasks são válidas
+
+```bash
+python3 -c "
+import json
+with open('tickets/TICKET_ID/status-tasks.json') as f:
+    data = json.load(f)
+task_ids = {t['id'] for t in data['tarefas']}
+for t in data['tarefas']:
+    for dep in t.get('dependeDe', []):
+        if dep not in task_ids:
+            print(f'ERRO: task {t[\"id\"]} depende de {dep} que nao existe')
+        # tambem verifica se a dependencia nao esta em estado bloqueante final
+"
+```
+
+#### 10.1.6. Se qualquer check falhar
+
+| Ação | O que fazer |
+|------|-------------|
+| Check 1 ou 2 falham | Executar: `./generate-context.sh TICKET_ID && ./generate-index.sh` e re-verificar |
+| Check 3 falha | Regerar refinamento: `./refine-ticket.sh TICKET_ID --refinement` |
+| Arquivo vazio | Remover ou regenerar o documento específico |
+| Dependência inválida | Corrigir `dependeDe` no `status-tasks.json` manualmente |
+
+Após corrigir, repetir os checks até passarem todos antes de prosseguir.
 
 ---
 
@@ -392,9 +464,9 @@ Agente:
 ├── Lê jira-data.json e analisa ../projetos/
 ├── Gera description.md, implementation-plan.md, roteiro-demo.md
 ├── Cria demo-artifacts/ (postman-collection, environment, queries)
-├── Cria 5 subtarefas em status-tasks.json
+├── Gera 7 subtarefas em status-tasks.json com nível de senioridade
 ├── Gera contexto-implementacao.md
-└── "Documentacao criada com 5 tarefas."
+└── "Documentacao criada com 7 tarefas."
 
 Usuário: "implemente a task 0001 do PROJ-123"
 Agente:
@@ -467,6 +539,7 @@ Pipeline:
 2. **Code Scan** → mapeia projetos, módulos, arquivos relevantes
 3. **Perguntas** → analisa gaps e gera perguntas para o negócio
 4. **Refinamento** → gera documento técnico completo
+5. **Subtarefas** → gera `status-tasks.json` automaticamente via `generate-tasks.py`
 
 ### 15.3. Configuração
 
@@ -481,13 +554,12 @@ Copie `refine-config.json` → `refine-config.local.json` e ajuste para seu proj
 ### 15.4. Fluxo de Uso
 
 ```
-TECH LEAD:
-1. ./refine-ticket.sh PROJ-123 --refine
-2. Revisar perguntas-negocio.md
-3. Enviar para o PO
-4. Com respostas: refinar refinamento-tecnico.md
-5. Gerar subtarefas em status-tasks.json
-6. Repassar para o time dev
+TECH LEAD (documentacao completa em 1 comando):
+1. ./gerar-documentacao.sh PROJ-123
+2. Revisar perguntas-negocio.md e enviar para o PO
+3. Copiar refinamento-tecnico.md para o Jira (campo de especificacao)
+4. Status-tasks.json gerado automaticamente com observacoes tecnicas
+5. Repassar para o time dev ou implementar via agente
 ```
 
 ### 15.5. Documentos Gerados
@@ -499,6 +571,9 @@ TECH LEAD:
 | `impact-report.json` | Estrutura dos projetos de código | Agente IA |
 | `perguntas-negocio.md` | Tabela de perguntas para o negócio | PO / Analista |
 | `refinamento-tecnico.md` | Documento completo de refinamento | Time dev |
+| `status-tasks.json` | Subtarefas atômicas com observações técnicas | Agente IA / Dev |
+| `implementation-plan.md` | Plano de implementação, arquitetura, cronograma | Time dev |
+| `contexto-implementacao.md` | Resumo visual com tabela de subtarefas | Dev |
 
 ### 15.6. Exemplo de Perguntas Geradas
 

@@ -153,8 +153,8 @@ fi
 load_config() {
     local config_file="$1"
 
-    # Tentar config local primeiro, depois a padrao
-    if [[ ! -f "$config_file" && -f "$LOCAL_CONFIG" ]]; then
+    # Priorizar refine-config.local.json se existir
+    if [[ -f "$LOCAL_CONFIG" ]]; then
         config_file="$LOCAL_CONFIG"
     fi
 
@@ -171,7 +171,7 @@ load_config() {
         # Projetos
         if [[ -z "${PROJECT_DIR:-}" ]]; then
             local projects
-            projects=$(jq -c '.projects[0].path // ""' "$config_file" 2>/dev/null || true)
+            projects=$(jq -r '.projects[0].path // ""' "$config_file" 2>/dev/null || true)
             if [[ -n "$projects" && "$projects" != '""' ]]; then
                 # Resolver caminho relativo ao diretorio do config
                 local config_dir

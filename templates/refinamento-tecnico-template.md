@@ -15,11 +15,19 @@
 | **Responsável** | {{ASSIGNEE}} |
 | **Solicitante** | {{REPORTER}} |
 | **Componentes** | {{COMPONENTS}} |
-| **Épico** | {{EPIC_KEY}}: {{EPIC_SUMMARY}} |
+| **Épico** | {{EPIC}} |
+
+{% if CUSTOM_FIELDS %}
+### Campos Personalizados
+
+| Campo | Valor |
+|-------|-------|
+{{CUSTOM_FIELDS}}
+{% endif %}
 
 ## 2. Projetos e Módulos Afetados
 
-{{SCAN_RESULT}}
+{{SCAN_HTML}}
 
 ## 3. Visão Geral
 
@@ -32,22 +40,7 @@
 ## 4. Fluxo de Dados (Proposto)
 
 ```
-[Entrada]
-  │
-  ├─> [Validação / Toggle]
-  │     ├─ Desabilitado → log + skip
-  │     └─ Habilitado → continua
-  │
-  ├─> [Montar Request]
-  │
-  ├─> [Chamar API]
-  │     ├─ Sucesso → processar
-  │     ├─ Erro → tratar
-  │     └─ Timeout → retry?
-  │
-  └─> [Atualizar Escopo]
-       │
-       └─> [Continuar fluxo]
+{{FLOW_DIAGRAM}}
 ```
 
 ## 5. Arquivos Sugeridos
@@ -58,13 +51,13 @@
 
 | Decisão | Impacto | Área |
 |---------|---------|------|
-| {{DECISAO_1}} | Alto | {{AREA}} |
+{{DECISIONS_TABLE}}
 
 ## 7. Riscos Técnicos
 
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|-------------|---------|-----------|
-| {{RISCO_1}} | Média | Alto | {{MITIGACAO}} |
+{{RISKS_TABLE}}
 
 ## 8. Perguntas para o Negócio
 
@@ -72,25 +65,12 @@
 
 ## 9. Subtarefas (Proposta)
 
-{{TASKS_PROPOSAL}}
+{{TASKS_TABLE}}
 
 ## 10. Checklist de Implementação
 
-- [ ] **Análise:** Entendimento do negócio validado com PO
-- [ ] **Perguntas:** Todas as perguntas respondidas
-- [ ] **Design:** Arquitetura revisada
-- [ ] **Modelos:** DTOs/entidades criados
-- [ ] **Interface:** Interface do serviço definida
-- [ ] **Integração:** Endpoint implementado
-- [ ] **Lógica:** Regras de negócio implementadas
-- [ ] **Erros:** Tratamento de erros configurado
-- [ ] **Testes unitários:** Cobertura mínima
-- [ ] **Testes integração:** Fluxo completo
-- [ ] **Configuração:** Parâmetros configurados
-- [ ] **Documentação:** Atualizada
-- [ ] **Review:** Code review realizado
-- [ ] **QA:** Testes de aceite executados
+{{CHECKLIST}}
 
 ---
 
-*Documento gerado em {{DATE}}*
+*Documento gerado em {{DATE}} pelo sistema de refinamento técnico*

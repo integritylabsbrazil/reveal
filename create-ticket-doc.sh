@@ -1,8 +1,22 @@
 #!/bin/bash
 
 # ============================================================
-# create-ticket-doc.sh
-# Script para buscar dados de tickets do Jira via API REST.
+# create-ticket-doc.sh  [DEPRECATED]
+#
+# ATENÇÃO: Este script está DEPRECADO.
+# Substituído por:
+#   ./gerar-documentacao.sh TICKET_ID   (pipeline completo)
+#   ./refine-ticket.sh TICKET_ID --refine  (etapas individuais)
+#
+# Motivo: create-ticket-doc.sh é monolítico (685 linhas) e não
+# suporta configuração via refine-config.local.json, múltiplos
+# projetos, subtarefas com senioridade, download de attachments,
+# ou renderização por templates.
+#
+# Use os novos scripts que são modulares, config-driven e
+# suportam qualquer projeto (Java, JS/TS, genérico).
+# ============================================================
+# Script original: busca dados de tickets do Jira via API REST.
 # Uso: ./create-ticket-doc.sh TICKET_ID [opcoes]
 #
 # Variaveis de ambiente esperadas:

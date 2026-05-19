@@ -65,16 +65,17 @@ exec 3>&1
     # Tabela de subtarefas
     echo "## Subtarefas"
     echo ""
-    echo "| # | Projeto | Descrição | Status | Tipo |"
-    echo "|---|---------|-----------|--------|------|"
+    echo "| # | Nível | Projeto | Descrição | Status | Tipo |"
+    echo "|---|-------|---------|-----------|--------|------|"
 
     jq -r '.tarefas[] | [
         .id,
+        (.nivel // ""),
         (.projeto | split("/")[-1]),
         .descricao,
         .status,
         .tipo
-    ] | @tsv' "$TASKS_FILE" | while IFS=$'\t' read -r id projeto descricao status tipo; do
+    ] | @tsv' "$TASKS_FILE" | while IFS=$'\t' read -r id nivel projeto descricao status tipo; do
         case "$status" in
             concluido)   ic="✅" ;;
             cancelado)   ic="❌" ;;
@@ -83,7 +84,13 @@ exec 3>&1
             pendente)    ic="⏳" ;;
             *)           ic="❓" ;;
         esac
-        echo "| $id | $projeto | $descricao | $ic $status | $tipo |"
+        case "$nivel" in
+            junior)  nivel_ic="🟢" ;;
+            pleno)   nivel_ic="🟡" ;;
+            senior)  nivel_ic="🔴" ;;
+            *)       nivel_ic="" ;;
+        esac
+        echo "| $id | $nivel_ic $nivel | $projeto | $descricao | $ic $status | $tipo |"
     done
     echo ""
 

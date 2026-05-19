@@ -9,6 +9,9 @@ tickets/*/
 refine-config.local.json
 *.local.*
 
+# Anexos binarios de tickets (NUNCA commitar)
+tickets/*/attachments/
+
 # Temporários
 tmp/
 *.tmp
