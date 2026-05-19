@@ -139,10 +139,10 @@ Exemplo de `status-tasks.json`:
     {
       "id": "0001",
       "projeto": "meu-projeto-backend",
-      "descricao": "Criar entidade, DTOs e repository",
+      "descricao": "Implementar CRUD completo de Funcionalidade",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
       "nivel": "junior",
-      "tipo": "criar-classe",
+      "tipo": "implementar",
       "dependeDe": [],
       "bloqueadoPor": null,
       "status": "pendente"
@@ -150,10 +150,10 @@ Exemplo de `status-tasks.json`:
     {
       "id": "0002",
       "projeto": "meu-projeto-backend",
-      "descricao": "Criar servico com regras de negocio e endpoint REST",
+      "descricao": "Implementar logica de processamento/calculo de Funcionalidade",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "nivel": "pleno",
-      "tipo": "implementar",
+      "nivel": "senior",
+      "tipo": "alterar-classe",
       "dependeDe": ["0001"],
       "bloqueadoPor": null,
       "status": "pendente"
@@ -161,22 +161,11 @@ Exemplo de `status-tasks.json`:
     {
       "id": "0003",
       "projeto": "meu-projeto-backend",
-      "descricao": "Escrever testes unitarios e de integracao",
-      "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "nivel": "pleno",
-      "tipo": "testes",
-      "dependeDe": ["0002"],
-      "bloqueadoPor": null,
-      "status": "pendente"
-    },
-    {
-      "id": "0004",
-      "projeto": "meu-projeto-backend",
-      "descricao": "Preparar roteiro de demo e collection Postman",
+      "descricao": "Preparar artefatos de demonstracao de Funcionalidade",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
       "nivel": "junior",
       "tipo": "demo",
-      "dependeDe": ["0003"],
+      "dependeDe": ["0001"],
       "bloqueadoPor": null,
       "status": "pendente",
       "artefatos": ["roteiro-demo.md", "postman-collection.json", "postman-environment.json", "queries.sql"]
@@ -464,7 +453,7 @@ Agente:
 ├── Lê jira-data.json e analisa ../projetos/
 ├── Gera description.md, implementation-plan.md, roteiro-demo.md
 ├── Cria demo-artifacts/ (postman-collection, environment, queries)
-├── Gera 7 subtarefas em status-tasks.json com nível de senioridade
+├── Gera ate 3 subtarefas verticais em status-tasks.json com nivel de senioridade
 ├── Gera contexto-implementacao.md
 └── "Documentacao criada com 7 tarefas."
 

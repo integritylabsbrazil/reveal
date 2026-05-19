@@ -98,19 +98,18 @@ class TestJavaTasks(unittest.TestCase):
         self.tasks = java_tasks(self.config, self.scan, self.jira,
                                  self.kw, 'TEST-1')
 
-    def test_generates_at_least_5(self):
-        self.assertGreaterEqual(len(self.tasks), 5)
+    def test_generates_exact_count(self):
+        # Com needs_calculation=True, gera 3 tasks (CRUD + processamento + demo)
+        self.assertEqual(len(self.tasks), 3)
 
-    def test_first_is_criar_classe(self):
-        self.assertEqual(self.tasks[0]['tipo'], 'criar-classe')
+    def test_first_is_implementar(self):
+        self.assertEqual(self.tasks[0]['tipo'], 'implementar')
 
     def test_first_is_junior(self):
         self.assertEqual(self.tasks[0]['nivel'], 'junior')
 
-    def test_has_all_levels(self):
+    def test_has_senior_for_calculation(self):
         levels = {t.get('nivel') for t in self.tasks}
-        self.assertIn('junior', levels)
-        self.assertIn('pleno', levels)
         self.assertIn('senior', levels)
 
     def test_dependencies_are_valid(self):

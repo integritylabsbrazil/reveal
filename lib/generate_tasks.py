@@ -34,12 +34,11 @@ def load_json(path, default=None):
 
 def find_config(ticket_dir):
     """Auto-descobre refine-config.local.json ou refine-config.json."""
+    ticket_dir = os.path.abspath(ticket_dir)
     # Procurar de baixo pra cima a partir do ticket_dir
-    for d in [ticket_dir, os.path.dirname(ticket_dir),
-              os.path.dirname(os.path.dirname(ticket_dir)),
-              os.path.dirname(os.path.dirname(os.path.dirname(ticket_dir)))]:
-        if not d or d == '/':
-            break
+    parts = ticket_dir.split(os.sep)
+    for depth in range(len(parts), 0, -1):
+        d = os.sep.join(parts[:depth]) or '/'
         for name in ['refine-config.local.json', 'refine-config.json']:
             p = os.path.join(d, name)
             if os.path.exists(p):
@@ -126,7 +125,15 @@ def summarize_domain(text, max_words=4):
 # ---------------------------------------------------------------------------
 
 def java_tasks(config, scan_data, jira_data, keywords, ticket_id):
-    """Gera tasks para projetos Java/Spring."""
+    """Gera tasks verticais consolidadas para projetos Java/Spring.
+
+    Cada task agrupa tudo necessario para entregar um incremento testado:
+      1. CRUD completo (junior/pleno): entidade + DTOs + repository +
+         servico + endpoint + validacoes + exportacao + testes
+      2. Logica de processamento (senior, opcional): regras de negocio
+         complexas, calculos, arredondamento
+      3. Artefatos de demo (junior): roteiro + Postman + queries
+    """
     tasks = []
     task_id = [0]
     def nid():
@@ -142,125 +149,94 @@ def java_tasks(config, scan_data, jira_data, keywords, ticket_id):
         get_custom_field(jira_data, 'Objetivo')
     )
 
-    # --- Task 1: Modelo de dados ---
-    if keywords.get('needs_model', True):
+    change_type = ''
+    text = ' '.join(filter(None, [
+        jira_data.get('basic', {}).get('summary', ''),
+        get_custom_field(jira_data, 'Objetivo'),
+    ])).lower()
+    if re.search(r'parametro|parametriza|config|casa.*decimal|arredondamento', text):
+        change_type = 'parametrizacao'
+    elif re.search(r'criar|novo|nova|cadastr|adicionar', text):
+        change_type = 'criacao'
+    else:
+        change_type = 'alteracao'
+
+    precisa_export = keywords.get('needs_export', False)
+    precisa_calculo = keywords.get('needs_calculation', False)
+
+    # ------------------------------------------------------------------
+    # Task 1 — CRUD completo + validacoes + exportacao + testes
+    # ------------------------------------------------------------------
+    desc_crud = f"Implementar CRUD completo de {domain}"
+    if precisa_export:
+        desc_crud += " com exportacao/relatorios"
+
+    obs_crud = (
+        f"Pacote base: {pkg}\n\n"
+        f"Criar/alterar:\n"
+        f"  1. Entidade JPA + DTOs de request/response\n"
+        f"  2. Repository (Spring Data JPA)\n"
+        f"  3. Servico com regras de negocio e validacoes\n"
+        f"  4. Controller REST (CRUD completo)\n"
+    )
+    if precisa_export:
+        obs_crud += (
+            f"  5. Exportacao (CSV, PDF, XLS conforme padrao do projeto)\n"
+        )
+    obs_crud += (
+        f"\nTestes (obrigatorios):\n"
+        f"  - Unitarios: cenarios de sucesso e erro para cada endpoint\n"
+        f"  - Integracao: fluxo completo (entrada → banco → saida)\n"
+        f"  Framework: JUnit + Mockito (ou equivalente no projeto)\n\n"
+        f"[Junior/Pleno] Siga os padroes existentes no pacote {pkg}\n"
+        f"Veja controllers, services e entidades similares como referencia\n"
+        f"Use @RequiredArgsConstructor, @Valid, ResponseEntity"
+    )
+
+    tasks.append(dict(**K, id=nid(),
+        descricao=desc_crud,
+        nivel='junior',
+        observacoes=obs_crud,
+        tipo='implementar', dependeDe=[]))
+
+    # ------------------------------------------------------------------
+    # Task 2 — Logica de processamento (opcional, se houver calculo)
+    # ------------------------------------------------------------------
+    if precisa_calculo:
         tasks.append(dict(**K, id=nid(),
-            descricao=f"Criar entidade, DTOs e repository JPA para {domain}",
-            nivel='junior',
-            observacoes=(
-                f"Pacote base: {pkg}\n"
-                f"Criar:\n"
-                f"  1. Entidade JPA (@Entity, @Table, @Id, @GeneratedValue)\n"
-                f"  2. DTOs de request/response\n"
-                f"  3. Repository (Spring Data JPA)\n\n"
-                f"Seguir padroes existentes no pacote {pkg}\n"
-                f"[Junior] Veja entidades existentes como referencia de anotacoes"
-            ),
-            tipo='criar-classe', dependeDe=[]))
-
-    model_id = tasks[-1]['id'] if tasks else None
-
-    # --- Task 2: Servico + Endpoint ---
-    if keywords.get('needs_api', True):
-        deps = [model_id] if model_id else []
-        tasks.append(dict(**K, id=nid(),
-            descricao=f"Criar servico com regras de negocio e endpoint REST para {domain}",
-            nivel='pleno',
-            observacoes=(
-                f"Pacote servico: {pkg}.service\n"
-                f"Pacote controller: {pkg}.controller\n\n"
-                f"Implementar CRUD completo:\n"
-                f"  - listar, incluir, editar, excluir\n\n"
-                f"Validacoes:\n"
-                f"  - Validar campos obrigatorios\n"
-                f"  - Tratar erros com ResponseEntity\n\n"
-                f"[Pleno] Seguir padrao de ResponseDTO dos controllers existentes\n"
-                f"Usar @RequiredArgsConstructor, @Valid nos request bodies"
-            ),
-            tipo='implementar', dependeDe=deps))
-
-    api_id = tasks[-1]['id'] if tasks else None
-
-    # --- Task 3: Validacao extra (se necessario) ---
-    if keywords.get('needs_validation') and api_id:
-        tasks.append(dict(**K, id=nid(),
-            descricao=f"Criar servico de validacao para regras de negocio de {domain}",
-            nivel='pleno',
-            observacoes=(
-                f"Pacote: {pkg}.service\n\n"
-                f"Implementar validacoes especificas:\n"
-                f"  - Regras de bloqueio conforme requisitos\n"
-                f"  - Excecoes semanticas por tipo de erro\n\n"
-                f"[Pleno] Integrar com o servico existente via injecao de dependencia"
-            ),
-            tipo='criar-classe', dependeDe=[api_id]))
-
-    # --- Task 4: Processamento/Calculo (se necessario) ---
-    if keywords.get('needs_calculation') and api_id:
-        tasks.append(dict(**K, id=nid(),
-            descricao=f"Implementar logica de processamento/calculo para {domain}",
+            descricao=f"Implementar logica de processamento/calculo de {domain}",
             nivel='senior',
             observacoes=(
                 f"Pacote: {pkg}.service\n\n"
-                f"Implementar logica de negocio principal:\n"
+                f"Implementar a logica de negocio principal:\n"
                 f"  - Algoritmo de calculo conforme requisitos\n"
-                f"  - Atencao a regressao em funcionalidades existentes\n"
-                f"  - Validar com casos reais antes de finalizar\n\n"
-                f"[Senior] Esta e a task de maior risco tecnico"
-            ),
-            tipo='alterar-classe', dependeDe=[api_id]))
-
-    calc_id = tasks[-1]['id'] if keywords.get('needs_calculation') and api_id else None
-
-    # --- Task 5: Exportacao (se necessario) ---
-    if keywords.get('needs_export') and (calc_id or api_id):
-        tasks.append(dict(**K, id=nid(),
-            descricao=f"Implementar exportacao/relatorios para {domain}",
-            nivel='junior',
-            observacoes=(
-                "Formatos: CSV, PDF, XLS (conforme existentes no projeto)\n"
-                "Seguir padrao de exportacao ja utilizado no projeto\n\n"
-                "[Junior] Veja exemplos de exportacao em modulos similares"
+                f"  - Arredondamento e precisao numerica\n"
+                f"  - Atencao a regressao em funcionalidades existentes\n\n"
+                f"Testes (obrigatorios):\n"
+                f"  - Unitarios: cenario de calculo com valores conhecidos\n"
+                f"  - Comparacao com resultados esperados (casos reais)\n\n"
+                f"[Senior] Esta e a task de maior risco tecnico.\n"
+                f"Valide com casos reais antes de finalizar"
             ),
             tipo='alterar-classe',
-            dependeDe=[calc_id or api_id]))
+            dependeDe=[tasks[0]['id']]))
 
-    # --- Task 6: Testes ---
-    test_deps = [t['id'] for t in tasks if t['tipo'] in ('implementar', 'criar-classe')]
+    # ------------------------------------------------------------------
+    # Task 3 — Artefatos de demo (sempre)
+    # ------------------------------------------------------------------
     tasks.append(dict(**K, id=nid(),
-        descricao=f"Escrever testes unitarios e de integracao para {domain}",
-        nivel='pleno',
-        observacoes=(
-            "Testes unitarios:\n"
-            "  - Cenarios de sucesso e erro para cada endpoint\n"
-            "  - Validacao de regras de negocio\n"
-            "Testes de integracao:\n"
-            "  - Fluxo completo: entrada → processamento → saida\n"
-            "Framework: JUnit + Mockito (ou equivalente no projeto)\n\n"
-            "[Pleno/Junior] Pode ser dividido:\n"
-            "  - Junior: cenarios basicos\n"
-            "  - Pleno: fluxos de excecao e integracao"
-        ),
-        tipo='testes', dependeDe=test_deps))
-
-    # --- Task 7: UI (se tiver frontend no config) ---
-    test_id = tasks[-1]['id']
-
-    # --- Task 8: Demo (sempre) ---
-    demo_deps = [tasks[0]['id']] if tasks else []
-    tasks.append(dict(**K, id=nid(),
-        descricao=f"Preparar artefatos de demonstracao para {domain}",
+        descricao=f"Preparar artefatos de demonstracao de {domain}",
         nivel='junior',
         observacoes=(
             "Artefatos:\n"
-            "  - roteiro-demo.md: cenarios de apresentacao\n"
-            "  - postman-collection.json: requests organizados\n"
+            "  - roteiro-demo.md: cenarios de apresentacao para o negocio\n"
+            "  - postman-collection.json: requests organizados por cenario\n"
             "  - postman-environment.json: variaveis de ambiente\n"
             "  - queries.sql: consultas SQL antes/depois\n\n"
             "[Junior] Antes de criar requests, leia os DTOs no codigo fonte\n"
-            "Use valores realistas, nao invente campos"
+            "Use valores realistas baseados nos DTOs - nunca invente campos"
         ),
-        tipo='demo', dependeDe=demo_deps,
+        tipo='demo', dependeDe=[tasks[0]['id']],
         artefatos=['roteiro-demo.md', 'postman-collection.json',
                    'postman-environment.json', 'queries.sql']))
 
@@ -268,7 +244,13 @@ def java_tasks(config, scan_data, jira_data, keywords, ticket_id):
 
 
 def javascript_tasks(config, scan_data, jira_data, keywords, ticket_id):
-    """Gera tasks para projetos JavaScript/React/Node."""
+    """Gera tasks verticais consolidadas para projetos JS/React/Node.
+
+    Cada task agrupa implementacao + testes:
+      1. Feature completa (junior/pleno/senior): componentes + servico +
+         estado + testes
+      2. Artefatos de demo (junior)
+    """
     tasks = []
     task_id = [0]
     def nid():
@@ -283,72 +265,43 @@ def javascript_tasks(config, scan_data, jira_data, keywords, ticket_id):
         get_custom_field(jira_data, 'Objetivo')
     )
 
-    # --- Task 1: Componentes de UI ---
+    # --- Task 1: Feature completa (componentes + servico + estado + testes) ---
     tasks.append(dict(**K, id=nid(),
-        descricao=f"Criar componentes de UI para {domain}",
-        nivel='junior',
-        observacoes=(
-            "Criar componentes seguindo padrao do projeto:\n"
-            "  - Usar React hooks (useState, useEffect)\n"
-            "  - Seguir estrutura de pastas existente\n"
-            "  - Styled Components / CSS Modules conforme projeto\n\n"
-            "[Junior] Veja componentes similares como referencia"
-        ),
-        tipo='criar-classe', dependeDe=[]))
-
-    # --- Task 2: Servico/API ---
-    tasks.append(dict(**K, id=nid(),
-        descricao=f"Criar servico de API e hooks para {domain}",
+        descricao=f"Implementar feature completa de {domain}",
         nivel='pleno',
         observacoes=(
-            "Criar servico de comunicacao com API:\n"
-            "  - Chamadas HTTP (fetch/axios conforme projeto)\n"
-            "  - Tratamento de erros e loading states\n"
-            "  - Custom hooks para reutilizacao\n\n"
-            "[Pleno] Seguir padrao de servicos existentes"
+            "Implementar a feature de ponta a ponta:\n"
+            "  1. Componentes de UI (React, hooks, estado)\n"
+            "  2. Servico de API (fetch/axios, tratamento de erros)\n"
+            "  3. Integracao componentes + servico\n"
+            "  4. Navegacao e rotas\n\n"
+            "Testes (obrigatorios):\n"
+            "  - Renderizacao dos componentes\n"
+            "  - Servico/API com mock\n"
+            "  - Integracao (Cypress/Playwright se houver)\n"
+            "  Framework: Jest/Vitest conforme projeto\n\n"
+            "[Pleno] Siga o design system e estrutura de pastas existente"
         ),
-        tipo='implementar', dependeDe=[tasks[0]['id']]))
+        tipo='implementar', dependeDe=[]))
 
-    # --- Task 3: Pagina/Feature completa ---
-    tasks.append(dict(**K, id=nid(),
-        descricao=f"Implementar pagina completa de {domain}",
-        nivel='senior',
-        observacoes=(
-            "Implementar a feature completa:\n"
-            "  - Integracao componentes + servico\n"
-            "  - Estado global (se aplicavel)\n"
-            "  - Navegacao e rotas\n"
-            "  - Testes (Jest/React Testing Library)\n\n"
-            "[Senior] Garantir consistencia com o design system do projeto"
-        ),
-        tipo='implementar', dependeDe=[tasks[-1]['id']]))
-
-    # --- Task 4: Testes ---
-    tasks.append(dict(**K, id=nid(),
-        descricao=f"Escrever testes para {domain}",
-        nivel='pleno',
-        observacoes=(
-            "Testes com framework do projeto (Jest, Vitest, etc.):\n"
-            "  - Testes de renderizacao dos componentes\n"
-            "  - Testes de servico/API (mock)\n"
-            "  - Testes de integracao (Cypress/Playwright se houver)\n\n"
-            "[Pleno/Junior] Pode ser dividido entre membros do time"
-        ),
-        tipo='testes', dependeDe=[t['id'] for t in tasks if t['tipo'] == 'implementar']))
-
-    # --- Task 5: Demo ---
+    # --- Task 2: Artefatos de demo ---
     tasks.append(dict(**K, id=nid(),
         descricao=f"Preparar demonstracao de {domain}",
         nivel='junior',
         observacoes="Roteiro de demonstracao funcional da interface implementada",
-        tipo='demo', dependeDe=[tasks[-2]['id']],
+        tipo='demo', dependeDe=[tasks[0]['id']],
         artefatos=['roteiro-demo.md']))
 
     return tasks
 
 
 def generic_tasks(config, scan_data, jira_data, keywords, ticket_id):
-    """Gera tasks genericas para linguagens nao mapeadas."""
+    """Gera tasks verticais consolidadas para linguagens nao mapeadas.
+
+    Cada task agrupa implementacao + testes:
+      1. Implementar funcionalidade (pleno/senior)
+      2. Artefatos de demo (junior)
+    """
     tasks = []
     task_id = [0]
     def nid():
@@ -364,31 +317,23 @@ def generic_tasks(config, scan_data, jira_data, keywords, ticket_id):
     )
 
     tasks.append(dict(**K, id=nid(),
-        descricao=f"Analisar requisitos e planejar implementacao de {domain}",
+        descricao=f"Implementar funcionalidade de {domain}",
         nivel='pleno',
         observacoes=(
-            "Ler atentamente os requisitos funcionais e tecnicos.\n"
-            "Mapear arquivos e modulos afetados no projeto."
+            "Implementar conforme especificacao e padroes do projeto.\n\n"
+            "Testes (obrigatorios):\n"
+            "  - Unitarios: cenarios de sucesso e erro\n"
+            "  - Integracao: fluxo completo\n"
+            "  Framework conforme padrao do projeto\n\n"
+            "[Pleno] Analise os requisitos antes de implementar"
         ),
-        tipo='analise', dependeDe=[]))
-
-    tasks.append(dict(**K, id=nid(),
-        descricao=f"Implementar funcionalidade de {domain}",
-        nivel='senior',
-        observacoes="Implementar conforme especificacao e padroes do projeto",
-        tipo='implementar', dependeDe=[tasks[0]['id']]))
-
-    tasks.append(dict(**K, id=nid(),
-        descricao=f"Escrever testes para {domain}",
-        nivel='pleno',
-        observacoes="Testes unitarios e de integracao conforme framework do projeto",
-        tipo='testes', dependeDe=[tasks[-1]['id']]))
+        tipo='implementar', dependeDe=[]))
 
     tasks.append(dict(**K, id=nid(),
         descricao=f"Preparar demonstracao de {domain}",
         nivel='junior',
         observacoes="Roteiro de demonstracao",
-        tipo='demo', dependeDe=[tasks[-2]['id']]))
+        tipo='demo', dependeDe=[tasks[0]['id']]))
 
     return tasks
 

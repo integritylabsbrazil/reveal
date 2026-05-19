@@ -130,7 +130,7 @@ export JIRA_BASE="https://meujira.atlassian.net"
 | `implementation-plan.md` | Plano de implementação |
 | `roteiro-demo.md` | Script de apresentação |
 | `demo-artifacts/` | Postman collection + queries SQL |
-| `status-tasks.json` | **7 subtarefas** com nível de senioridade |
+| `status-tasks.json` | **3 subtarefas** verticais com nível de senioridade |
 | `contexto-implementacao.md` | Resumo visual com progresso |
 | `attachments/` | Imagens baixadas do Jira |
 
