@@ -32,7 +32,13 @@ else
     python3 "$SCRIPT_DIR/generate_tasks.py" "$TICKET_DIR"
 fi
 
-# Gerar implementation-plan.md se nao existir
+# Gerar implementation-plan.md rico via Python (sobrescreve sempre)
+if [ -f "$SCRIPT_DIR/generate_implementation_plan.py" ]; then
+    python3 "$SCRIPT_DIR/generate_implementation_plan.py" "$TICKET_DIR" 2>/dev/null || {
+        echo "[WARN] Falha ao gerar implementation-plan.md, usando fallback" >&2
+    }
+fi
+# Fallback: se nao foi gerado ainda, criar placeholder basico
 if [ ! -f "$TICKET_DIR/implementation-plan.md" ]; then
     TICKET_ID=$(jq -r '.ticketId // "TICKET"' "$TICKET_DIR/jira-data.json" 2>/dev/null || echo "TICKET")
     cat > "$TICKET_DIR/implementation-plan.md" << PLAN
@@ -41,14 +47,8 @@ if [ ! -f "$TICKET_DIR/implementation-plan.md" ]; then
 ## Arquitetura
 - Conforme especificacao tecnica no Jira
 
-## Cronograma Estimado
-- Tasks distribuidas conforme nivel de senioridade
-
 ## Projetos Envolvidos
 $(jq -r '.projetosEnvolvidos[] | "- " + .' "$TICKET_DIR/status-tasks.json" 2>/dev/null || echo "- pendente")
-
-## Observacoes
-- Gerado automaticamente por generate-tasks.sh
 PLAN
 fi
 
