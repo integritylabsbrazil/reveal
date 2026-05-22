@@ -3,17 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BLUE='\033[34m'; CYAN='\033[36m'; NC='\033[0m'
-
-info()    { echo -e "${BLUE}[DOC]${NC} $1"; }
-ok()      { echo -e "${GREEN}[DOC]${NC} $1"; }
-warn()    { echo -e "${YELLOW}[DOC]${NC} $1"; }
-error()   { echo -e "${RED}[DOC]${NC} $1"; }
-section() { echo ""; echo -e "${CYAN}═══════════════════════════════════════${NC}"; echo -e "${CYAN}  $1${NC}"; echo -e "${CYAN}═══════════════════════════════════════${NC}"; echo ""; }
+LOG_PREFIX="DOC"
+source "$SCRIPT_DIR/lib/utils.sh"
 
 run() {
     if [[ "$DRY_RUN" == true ]]; then
-        warn "[DRY-RUN] skipparia: $*"
+        log_warn "[DRY-RUN] skipparia: $*"
     else
         "$@"
     fi
@@ -58,13 +53,13 @@ fi
 TICKET_ID="${ARGS[0]}"
 
 if [[ "$DRY_RUN" == true ]]; then
-    warn "MODO DRY-RUN: Nenhuma alteracao sera feita."
+    log_warn "MODO DRY-RUN: Nenhuma alteracao sera feita."
 fi
 
 # ============================================================
 # 1. Verificar setup (credenciais, config)
 # ============================================================
-section "Verificando Configuracao"
+log_section "Verificando Configuracao"
 
 if [[ -z "${JIRA_USER:-}" || -z "${JIRA_TOKEN:-}" || -z "${JIRA_BASE:-}" ]]; then
     if [[ -f "$HOME/.jira-credentials" ]]; then
@@ -77,10 +72,10 @@ if [[ -z "${JIRA_USER:-}" || -z "${JIRA_TOKEN:-}" || -z "${JIRA_BASE:-}" ]]; the
             JIRA_BASE=$(jq -r '.jira.baseUrl // ""' "$SCRIPT_DIR/refine-config.json" 2>/dev/null || true)
         fi
         export JIRA_USER JIRA_TOKEN JIRA_BASE
-        ok "Credenciais carregadas de ~/.jira-credentials"
+        log_ok "Credenciais carregadas de ~/.jira-credentials"
     else
-        warn "Variaveis de ambiente nao configuradas."
-        warn "Execute setup.sh primeiro ou configure manualmente:"
+        log_warn "Variaveis de ambiente nao configuradas."
+        log_warn "Execute setup.sh primeiro ou configure manualmente:"
         echo "  export JIRA_USER=email@empresa.com"
         echo "  export JIRA_TOKEN=seu-token"
         echo "  export JIRA_BASE=https://meujira.atlassian.net"
@@ -89,12 +84,12 @@ if [[ -z "${JIRA_USER:-}" || -z "${JIRA_TOKEN:-}" || -z "${JIRA_BASE:-}" ]]; the
         if [[ "$RUN_SETUP" =~ ^[Ss]$ ]]; then
             bash "$SCRIPT_DIR/setup.sh"
         else
-            error "Setup necessario. Abortando."
+            log_error "Setup necessario. Abortando."
             exit 1
         fi
     fi
 else
-    ok "Variaveis de ambiente ja configuradas"
+    log_ok "Variaveis de ambiente ja configuradas"
 fi
 
 # ============================================================
@@ -102,15 +97,15 @@ fi
 # ============================================================
 LOCAL_CONFIG="$SCRIPT_DIR/refine-config.local.json"
 if [[ ! -f "$LOCAL_CONFIG" ]]; then
-    warn "refine-config.local.json nao encontrado."
+    log_warn "refine-config.local.json nao encontrado."
     if [[ "$DRY_RUN" == true ]]; then
-        warn "[DRY-RUN] Usaria refine-config.json como base para criar $LOCAL_CONFIG"
+        log_warn "[DRY-RUN] Usaria refine-config.json como base para criar $LOCAL_CONFIG"
     elif [[ -f "$SCRIPT_DIR/refine-config.json" ]]; then
         jq --arg base "$JIRA_BASE" \
            '.jira.baseUrl = $base' "$SCRIPT_DIR/refine-config.json" > "$LOCAL_CONFIG"
-        ok "refine-config.local.json criado"
+        log_ok "refine-config.local.json criado"
     else
-        error "refine-config.json nao encontrado!"
+        log_error "refine-config.json nao encontrado!"
         exit 1
     fi
 fi
@@ -120,68 +115,107 @@ fi
 # ============================================================
 TICKET_DIR="$SCRIPT_DIR/tickets/$TICKET_ID"
 if [[ -d "$TICKET_DIR" ]] && [[ -n "$(ls -A "$TICKET_DIR" 2>/dev/null)" ]]; then
-    warn "O diretorio $TICKET_DIR ja existe e contem dados."
+    log_warn "O diretorio $TICKET_DIR ja existe e contem dados."
     if [[ "$DRY_RUN" != true ]]; then
         read -r -p "Deseja sobrescrever? (s/N): " OVERWRITE
         if [[ ! "$OVERWRITE" =~ ^[Ss]$ ]]; then
-            error "Abortando pelo usuario."
+            log_error "Abortando pelo usuario."
             exit 1
         fi
         rm -rf "$TICKET_DIR" 2>/dev/null || true
         mkdir -p "$TICKET_DIR"
     else
-        warn "[DRY-RUN] Sobrescreveria $TICKET_DIR"
+        log_warn "[DRY-RUN] Sobrescreveria $TICKET_DIR"
     fi
 fi
 
 # ============================================================
 # 4. Pipeline completa
 # ============================================================
-section "Pipeline de Documentacao — $TICKET_ID"
+log_section "Pipeline de Documentacao — $TICKET_ID"
 
-ok "Iniciando pipeline: fetch → scan → perguntas → refinamento → validacao"
+log_ok "Iniciando pipeline: fetch → scan → perguntas → refinamento → validacao"
 
 # Etapas (refinement temporario sem tasks — ainda nao geradas)
 run bash "$SCRIPT_DIR/refine-ticket.sh" "$TICKET_ID" --refine
 
 # ============================================================
-# 5. Geracao automatica de subtarefas + re-refinamento
+# 5. Geracao automatica de subtarefas + plano + re-refinamento
 # ============================================================
 if [[ -f "$SCRIPT_DIR/lib/generate-tasks.sh" && -f "$TICKET_DIR/jira-data.json" ]]; then
-    section "Geracao de Subtarefas"
-    run bash "$SCRIPT_DIR/lib/generate-tasks.sh" "$TICKET_DIR"
-    ok "Subtarefas geradas em status-tasks.json"
+    log_section "Geracao de Subtarefas"
+    # Sempre passar --from-jira: o pipeline ja buscou os dados do Jira
+    run bash "$SCRIPT_DIR/lib/generate-tasks.sh" "$TICKET_DIR" --from-jira
+    log_ok "Subtarefas geradas em status-tasks.json"
+
+    # Gerar plano de implementacao agora que status-tasks.json existe
+    log_section "Gerando Plano de Implementacao"
+    run bash "$SCRIPT_DIR/refine-ticket.sh" "$TICKET_ID" --plan 2>/dev/null || true
+    log_ok "Plano de implementacao gerado"
 
     # Re-gerar refinamento agora com as subtarefas
-    section "Re-gerando refinamento com subtarefas"
+    log_section "Re-gerando refinamento com subtarefas"
     run bash "$SCRIPT_DIR/refine-ticket.sh" "$TICKET_ID" --refinement 2>/dev/null || true
-    ok "Refinamento atualizado com subtarefas"
+    log_ok "Refinamento atualizado com subtarefas"
+fi
+
+# ============================================================
+# 5.5. Gerar AGENTS-EXEC.md
+# ============================================================
+if [[ -f "$SCRIPT_DIR/lib/generate_agents_exec.py" && -f "$TICKET_DIR/status-tasks.json" ]]; then
+    run python3 "$SCRIPT_DIR/lib/generate_agents_exec.py" "$TICKET_DIR" 2>/dev/null || true
+    log_ok "AGENTS-EXEC.md gerado"
 fi
 
 # ============================================================
 # 6. Pos-processamento
 # ============================================================
-section "Pos-processamento"
+log_section "Pos-processamento"
 
 if [[ -f "$SCRIPT_DIR/validate-ticket.sh" ]]; then
     run bash "$SCRIPT_DIR/validate-ticket.sh" "$TICKET_ID" 2>/dev/null || true
-    ok "Validacao concluida"
+    log_ok "Validacao concluida"
 fi
 
 if [[ -f "$SCRIPT_DIR/generate-context.sh" ]]; then
     run bash "$SCRIPT_DIR/generate-context.sh" "$TICKET_ID" 2>/dev/null || true
-    ok "Contexto de implementacao atualizado"
+    log_ok "Contexto de implementacao atualizado"
 fi
 
 if [[ -f "$SCRIPT_DIR/generate-index.sh" ]]; then
     run bash "$SCRIPT_DIR/generate-index.sh" 2>/dev/null || true
-    ok "Indice atualizado"
+    log_ok "Indice atualizado"
 fi
 
 # ============================================================
-# 6. Resumo
+# 7. Criacao de Subtasks no Jira (interativa)
 # ============================================================
-section "Documentacao Gerada — $TICKET_ID"
+if [[ -f "$SCRIPT_DIR/lib/jira-create-tasks.sh" && -f "$TICKET_DIR/status-tasks.json" ]]; then
+    JIRA_CREATE_SCRIPT="$SCRIPT_DIR/lib/jira-create-tasks.sh"
+    HAS_PENDING=$(jq '[.tarefas[] | select((.jiraKey // "") == "")] | length' "$TICKET_DIR/status-tasks.json" 2>/dev/null || echo 0)
+    if [[ "$HAS_PENDING" -gt 0 ]]; then
+        echo ""
+        log_info "Tasks sem jiraKey detectadas: $HAS_PENDING"
+        echo ""
+        read -r -p "Deseja criar subtasks no Jira agora? (s/N) " CREATE_REPLY
+        case "$CREATE_REPLY" in
+            s|S|sim|SIM)
+                run bash "$JIRA_CREATE_SCRIPT" "$TICKET_ID"
+                log_ok "Criacao de subtasks concluida"
+                ;;
+            *)
+                log_info "Criacao de subtasks pulada."
+                echo "  Para criar depois: bash lib/jira-create-tasks.sh $TICKET_ID"
+                ;;
+        esac
+        echo ""
+    fi
+fi
+
+# ============================================================
+# 8. Resumo
+# ============================================================
+log_section "Documentacao Gerada — $TICKET_ID"
 
 echo ""
 echo "  Diretorio: $TICKET_DIR"
@@ -190,7 +224,8 @@ echo "  Arquivos gerados:"
 for f in jira-data.json jira-summary.md impact-report.json \
          perguntas-negocio.md perguntas-negocio.json \
          refinamento-tecnico.md status-tasks.json \
-         implementation-plan.md contexto-implementacao.md; do
+         implementation-plan.md contexto-implementacao.md \
+         AGENTS-EXEC.md; do
     if [[ -f "$TICKET_DIR/$f" ]]; then
         echo "    ✅ $f"
     else
@@ -198,10 +233,17 @@ for f in jira-data.json jira-summary.md impact-report.json \
     fi
 done
 echo ""
+echo "  Novas funcionalidades disponiveis:"
+echo "    🎯 Granularidade inteligente — auto-detectarada baseada na complexidade"
+echo "    🧩 Observacoes enriquecidas — com contexto real do projeto (projects-context/)"
+echo "    📊 Score de qualidade — avaliacao automatica no validate-ticket.sh"
+echo "    📈 Grafo de dependencias Mermaid — visualizacao das dependencias entre tasks"
+echo "    ⏱ Estimativa de esforco — horas estimadas por task e total"
+echo ""
 echo "  Proximos passos:"
 echo "    1. Revise perguntas-negocio.md e envie ao PO"
 echo "    2. Com as respostas, refine implementation-plan.md e status-tasks.json"
 echo "    3. Copie refinamento-tecnico.md para o Jira (campo de especificacao)"
 echo "    4. Inicie a implementacao via AGENTS.md ou repasse para o time dev"
 echo ""
-ok "Concluido!"
+log_ok "Concluido!"

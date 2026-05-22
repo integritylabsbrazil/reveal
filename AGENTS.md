@@ -12,27 +12,50 @@ reveal/
 ├── LICENSE
 ├── AGENTS.md
 ├── README.md
-├── refine-config.json            ← Configuração (Jira, projetos)
 ├── refine-ticket.sh              ← Orquestrador principal
-├── create-ticket-doc.sh          ← [DEPRECATED] Script de fetch Jira legado
+├── gerar-documentacao.sh         ← Pipeline completo
+├── setup.sh                      ← Setup interativo
+├── generate-project-context.sh   ← Extrai contexto permanente do codigo fonte
+├── refine-config.json            ← Configuração (Jira, projetos)
+├── refine-config.local.json      ← Configuração local (gitignored)
 ├── generate-context.sh           ← Gera contexto-implementacao.md
 ├── generate-index.sh             ← Regenera INDEX.md
-├── validate-ticket.sh            ← Valida consistência entre docs
+├── validate-ticket.sh            ← Valida consistência entre docs + schema JSON
+├── completions.sh                ← Auto-complete bash
 │
 ├── lib/
+│   ├── utils.sh                  ← Funções compartilhadas de logging
 │   ├── jira-fetch.sh             ← Deep fetch Jira
 │   ├── code-scan.sh              ← Scan de código multi-linguagem
 │   ├── generate-questions.sh     ← Perguntas para o negócio
 │   ├── generate-refinement.sh    ← Refinamento técnico
 │   ├── generate-tasks.sh         ← Wrapper shell para generate-tasks.py
-│   └── generate_tasks.py         ← Gera status-tasks.json automaticamente
+│   ├── utils.py                  ← Funções Python compartilhadas
+│   ├── render_template.py        ← Renderizador Mustache-like {{VAR}}
+│   ├── assemble_jira.py          ← Monta dados do Jira
+│   ├── extract_project_context.py← Extrai padroes arquiteturais do codigo fonte
+│   ├── generate_implementation_plan.py ← Plano de implementação (usa projects-context/)
+│   ├── generate_tasks.py         ← Gera status-tasks.json automaticamente
+│   ├── generate_per_task_jira_text.py ← Texto Jira por subtarefa
+│   ├── jira_agile_parse.py       ← Parse de sprints/pontos
+│   ├── jira_attachment_dedup.py  ← Download attachments com dedup MD5
+│   └── jira_count_attachments.py ← Contagem de attachments
+│
+├── projects-context/             ← Contexto permanente extraido do codigo fonte
+│   ├── _template.md              ← Modelo para novos projetos
+│   └── <projeto>.md              ← Gerado por generate-project-context.sh
 │
 ├── templates/
-│   ├── perguntas-negocio-template.md
-│   └── refinamento-tecnico-template.md
+│   ├── refinamento-tecnico-template.md       ← Template base (melhorado)
+│   └── refinamento-tecnico-template.md.bak    ← Backup do template original
 │
 ├── hooks/
 │   └── commit-msg                ← Hook para validar mensagens
+│
+├── tests/
+│   ├── test_generate_tasks.py    ← 27 testes
+│   ├── test_utils.py             ← 20 testes
+│   └── test_extracted.py         ← 5 testes
 │
 └── tickets/                      ← Documentação de tickets (criada pelo refine)
     ├── _template/                ← Modelo para novos tickets
@@ -69,6 +92,17 @@ O agente pode estar em três situações em relação à estrutura do projeto:
 
 **Regra geral:** O diretório raiz do reveal contém `refine-ticket.sh`.
 
+**Contexto permanente do projeto:** Use `projects-context/` para obter
+informações arquiteturais sem precisar escanear o código fonte a cada
+sessão. Estes arquivos são gerados por `generate-project-context.sh` e
+contêm pacotes, anotações, endpoints, classes de referência e convenções.
+
+Para listar projetos com contexto disponível:
+
+```bash
+ls projects-context/*.md | grep -v _template
+```
+
 ---
 
 ## 4. Fluxo de Perguntas — AO INICIAR UMA SESSÃO
@@ -94,10 +128,46 @@ Qual ticket você vai trabalhar? (ex: PROJ-123)
 ```
 O que você quer fazer?
 
-[📋] a) Gerar documentação — Buscar dados do Jira e criar planos + subtarefas
-[⚙️] b) Implementar uma task — Executar uma subtarefa específica
-[📊] c) Verificar status — Mostrar progresso do ticket e subtarefas
+a) Gerar documentação — Buscar dados do Jira e criar planos + subtarefas
+b) Implementar uma task — Executar uma subtarefa específica
+c) Verificar status — Mostrar progresso do ticket e subtarefas
 ```
+
+### Passo 5: Se for gerar documentação, pergunte granularidade
+
+```
+Que nível de granularidade você quer para as tasks?
+
+a) Grossa (3 tasks) — recomendado para tickets simples
+   Ex: CRUD, Lógica, Demo
+b) Média (6-7 tasks) — cada camada de desenvolvimento
+   Ex: Entity+Repo, DTOs, Service, Controller, Testes, Demo
+c) Fina (10-11 tasks) — cada classe individualmente
+   Ex: Migration, Entity, DTOs, Repo, Mapper, Service, Controller, Testes, Demo
+```
+
+### Passo 6: Mostre preview e confirme
+
+Após escolher a granularidade, gere as tasks com `--preview`:
+
+```bash
+./lib/generate-tasks.sh tickets/TICKET_ID --granularity media --preview
+```
+
+Mostre a tabela gerada para o usuário e pergunte:
+
+```
+Tasks para TICKET-123 no modo media (7 tasks):
+
+| ID | Descrição | Nível | Tipo | Depende |
+|----|-----------|-------|------|---------|
+| ...
+
+Confirma? (s/n)
+```
+
+Se `n`, pergunte novamente a granularidade ou permita ajustes manuais.
+Se `s`, prossiga com a geração completa.
 
 ---
 
@@ -109,7 +179,22 @@ O que você quer fazer?
 você DEVE ler a documentação do projeto alvo para entender suas
 convenções, padrões de código e arquitetura.
 
-Para cada projeto em `refine-config.local.json`:
+**Fonte primária de contexto:** Primeiro verifique se existe um arquivo
+em `projects-context/<projeto>.md` (gerado por `generate-project-context.sh`).
+Este arquivo contém toda a informação arquitetural extraída do código
+fonte — pacotes, anotações, endpoints, classes de referência — e é a
+fonte mais rápida e confiável para entender o projeto.
+
+```bash
+# Verificar contexto permanente disponivel
+ls projects-context/ 2>/dev/null
+
+# Ler contexto do projeto especifico
+cat projects-context/<projeto>.md
+```
+
+Se `projects-context/<projeto>.md` **não** existir, escaneie o código
+fonte manualmente como fallback:
 
 ```bash
 # 1. Documentação do projeto
@@ -132,6 +217,12 @@ ls <caminho-projeto>/src/main/java/**/*Service.java   | head -5
 ls <caminho-projeto>/src/main/java/**/*Entity.java     | head -5
 ```
 
+Neste caso, considere gerar o contexto permanente para reuso futuro:
+
+```bash
+./generate-project-context.sh path/to/projeto
+```
+
 Extraia destas fontes:
 - **Convenções de nomenclatura**: como controllers, services, entities são nomeados
 - **Padrões de pacotes**: estrutura de pacotes (command/controller/service/repository)
@@ -147,19 +238,25 @@ próprio projeto.
 ### 5.2. Analise o código fonte
 
 Para cada projeto identificado como afetado:
+
+```bash
+# Se projects-context/<projeto>.md existe, ele ja contem toda informacao
+# Senao, use os comandos abaixo para escanear manualmente:
+```
+
 - Leia `settings.gradle` / `pom.xml` / `package.json` (multi-module?)
 - Mapeie pacotes com `ls src/main/java/...` ou `ls src/`
 - Identifique padrões de implementação em tickets similares
 - Leia uma classe de exemplo de cada tipo (Controller, Service, Entity, DTO)
 
-### 5.3. Gere os arquivos base
+### 5.3. Gere os arquivos base (agente IA)
+
+> Nota: `implementation-plan.md` agora é gerado pelo pipeline (`--plan`).
+> O agente não precisa mais criá-lo manualmente.
 
 1. **`description.md`**: Conteúdo do Jira enriquecido com análise de negócio
-2. **`implementation-plan.md`**: Abordagem técnica com exemplos concretos
-   de: classes que serão criadas/alteradas, endpoints que serão expostos,
-   validações aplicadas, pacotes afetados
-3. **`roteiro-demo.md`**: Script de apresentação para o negócio
-4. **`demo-artifacts/`**: Artefatos da demonstração (Postman, SQL)
+2. **`roteiro-demo.md`**: Script de apresentação para o negócio
+3. **`demo-artifacts/`**: Artefatos da demonstração (Postman, SQL)
 
 ### 5.4. Gere as subtarefas → `status-tasks.json`
 
@@ -213,6 +310,7 @@ Exemplo de `status-tasks.json`:
       "dependeDe": ["0001"],
       "bloqueadoPor": null,
       "status": "pendente",
+      "esforcoEstimado": {"horas": 4, "descricao": "medio (~4h)"},
       "artefatos": ["roteiro-demo.md", "postman-collection.json", "postman-environment.json", "queries.sql"]
     }
   ]
@@ -401,6 +499,86 @@ Antes de definir o body de qualquer request na collection, você DEVE:
 
 ---
 
+### 9.6. Formato das `observacoes` (markdown livre → ADF no Jira)
+
+O campo `observacoes` de cada task em `status-tasks.json` é escrito em **markdown puro**.
+O `build_adf.py` converte para ADF (Atlassian Document Format) automaticamente,
+reconhecendo os seguintes elementos:
+
+| Markdown | Renderização no Jira |
+|----------|---------------------|
+| `# Titulo` | Heading (seção) |
+| `## Subtitulo` | Sub-heading |
+| ` ```java ... ``` ` | Code block com syntax highlight (```java, ```xml, ```yaml) |
+| `\| cel \| cel \|` (2+ linhas) | Tabela |
+| texto livre | Parágrafo |
+
+**Regras obrigatórias:**
+
+1. Use `#` para seções, não texto maiúsculo (`# Objetivo`, `# Arquivos Afetados`, etc.)
+2. Code blocks DEVEM ter o language identifier: ` ```java`, ` ```xml`, ` ```yaml`, ` ```json`
+3. Tabelas: primeira linha é o header, segunda linha separadora `|---|---|`, demais linhas dados
+4. Classe **nova**: escrever `NOVA: NomeSugeridoCamelCase.java` na descrição
+5. Classe **alterada**: mencionar o path real e o que muda
+6. **JSON de resposta:** incluir `# Exemplo de Resposta` com ` ```json` contendo request/response real extraído do DTO do projeto — não inventar campos
+
+**Exemplo de `observacoes`:**
+
+```markdown
+# Objetivo
+Possibilitar busca de conta contabil por numeracao sem pontuacao.
+
+# Arquivos Afetados
+| Arquivo | Acao | Pacote |
+|---------|------|--------|
+| ContaContabilRepositoryCustomImpl.java | ALTERAR | com.maps.dataa.tesouraria.contaContabil.repository |
+| NormalizacaoUtils.java | NOVA | com.maps.dataa.tesouraria.common |
+
+# Implementacao
+1. Criar `NormalizacaoUtils` com metodo estatico
+   ```java
+   public static String normalizarFiltro(String filtro) {
+       return filtro.replaceAll("[-.\\/]", "");
+   }
+   ```
+2. Alterar query JPQL para usar REPLACE
+
+# Codigo de Exemplo
+```java
+// FavorecidoGetAction.java:53 — normalizacao existente
+filtro.replaceAll("-","").replaceAll("\\.","").replaceAll("/","")
+```
+
+# Exemplo de Resposta
+
+GET /api/tesouraria/conta-contabil/autocomplete?filtro=101
+
+```json
+[
+  {
+    "id": 1,
+    "numeracao": "1.01.01.00.00.00.00.00",
+    "nome": "ATIVO CIRCULANTE - CAIXA",
+    "idPlanificacao": 5,
+    "planificacaoAtiva": true
+  }
+]
+```
+
+# Criterios de Aceitacao
+| Cenario | Resultado Esperado |
+|---------|-------------------|
+| Busca "101" sem pontuacao | Encontra "1.01.00.00.00.00.00" |
+| Busca "1.01" com pontuacao | Encontra mesma conta (compatibilidade) |
+```
+
+> O agente DEVE extrair os exemplos de código do `projects-context/<projeto>.md`
+> e do próprio código fonte, garantindo que sejam REAIS e ESPECÍFICOS da task,
+> não skeletons genéricos. Classes de referência que não têm relação com a task
+> NÃO devem ser incluídas.
+
+---
+
 ## 10. Sincronização JSON com MD
 
 O agente SEMPRE:
@@ -479,12 +657,58 @@ for t in data['tarefas']:
 "
 ```
 
-#### 10.1.6. Se qualquer check falhar
+#### 10.1.6. Check 6 — Qualidade das observações técnicas
+
+O refinamento deve conter observações técnicas específicas para cada task, especialmente para tasks de nível pleno/senior:
+
+```bash
+TASKS_FILE="tickets/TICKET_ID/status-tasks.json"
+if command -v jq &>/dev/null; then
+  jq -r '.tarefas[] | select(.nivel == "senior" or .nivel == "pleno") | "\(.id): \(.observacoes | length) chars"' "$TASKS_FILE"
+  # Observacoes com menos de 100 chars sao consideradas insuficientes
+  jq -r '.tarefas[] | select(.nivel == "senior" or .nivel == "pleno") | select((.observacoes // "") | length < 100) | "AVISO: Task \(.id) sem observacoes suficientes"' "$TASKS_FILE"
+fi
+```
+
+#### 10.1.7. Check 7 — Seções do refinamento técnico
+
+O `refinamento-tecnico.md` deve conter as seguintes seções obrigatórias:
+
+```bash
+REF_FILE="tickets/TICKET_ID/refinamento-tecnico.md"
+for section in "Dados do Ticket" "Objetivo Funcional" "Impacto Técnico" "Observações Técnicas por Task" "Tasks" "Checklist de Implementação" "Matriz de Rastreabilidade"; do
+  if ! grep -qi "$section" "$REF_FILE" 2>/dev/null; then
+    echo "ERRO: Seção '$section' não encontrada no refinamento técnico!"
+  fi
+done
+```
+
+As seções **Observações Técnicas por Task** e **Matriz de Rastreabilidade** são obrigatórias para o refinamento — a primeira fornece orientação direta ao desenvolvedor, a segunda vincula perguntas de negócio a decisões técnicas e tasks.
+
+#### 10.1.8. Check 8 — Tasks referenciam projetos válidos
+
+```bash
+TASKS_FILE="tickets/TICKET_ID/status-tasks.json"
+if [ -d "projects-context" ] && command -v jq &>/dev/null; then
+  jq -r '.tarefas[] | "\(.id) → projeto: \(.projeto // "?"), caminho: \(.caminhoProjeto // "?")"' "$TASKS_FILE" | while IFS= read -r line; do
+    projeto=$(echo "$line" | sed 's/.*projeto: //;s/, caminho:.*//')
+    ctx_file="projects-context/${projeto}.md"
+    if [ ! -f "$ctx_file" ]; then
+      echo "AVISO: Projeto '$projeto' nao tem arquivo em projects-context/"
+    fi
+  done
+fi
+```
+
+#### 10.1.9. Se qualquer check falhar
 
 | Ação | O que fazer |
 |------|-------------|
 | Check 1 ou 2 falham | Executar: `./generate-context.sh TICKET_ID && ./generate-index.sh` e re-verificar |
 | Check 3 falha | Regerar refinamento: `./refine-ticket.sh TICKET_ID --refinement` |
+| Check 6 falha | Regerar refinamento com observações técnicas aprimoradas |
+| Check 7 falha | Verificar template e regerar refinamento |
+| Check 8 falha | Verificar projetos em `refine-config.json` e gerar `projects-context/` |
 | Arquivo vazio | Remover ou regenerar o documento específico |
 | Dependência inválida | Corrigir `dependeDe` no `status-tasks.json` manualmente |
 
@@ -497,22 +721,39 @@ Após corrigir, repetir os checks até passarem todos antes de prosseguir.
 ```
 Usuário: "gere documentacao para PROJ-123"
 Agente:
-├── refine-ticket.sh PROJ-123 --refine
-├── Lê jira-data.json e analisa ../projetos/
-├── Gera description.md, implementation-plan.md, roteiro-demo.md
+├── Verifica se projects-context/<projeto>.md existe
+├── refine-ticket.sh PROJ-123 --refine   ← Pipeline: fetch + scan + perguntas + refinamento
+├── Lê jira-data.json e projects-context/<projeto>.md para entender estrutura
+├── Pergunta granularidade → usuário escolhe "media"
+├── Mostra preview: ./generate-tasks.sh PROJ-123 --granularity media --preview
+├── Confirma? → sim
+├── Re-gera tasks com granularidade escolhida
+├── Gera description.md, roteiro-demo.md
 ├── Cria demo-artifacts/ (postman-collection, environment, queries)
-├── Gera ate 3 subtarefas verticais em status-tasks.json com nivel de senioridade
-├── Gera contexto-implementacao.md
-└── "Documentacao criada com 7 tarefas."
+├── Implementation-plan.md enriquecido com contexto do projeto
+├── Status-tasks.json gerado automaticamente
+├── Contexto-implementacao.md gerado e validado
+└── "Documentacao criada. 7 tasks em status-tasks.json."
+
+Usuário: "adicione a task 'Criar endpoints de exportacao' no PROJ-123"
+Agente:
+├── Lê status-tasks.json atual (7 tasks existentes)
+├── Pergunta nivel, tipo e dependencias da nova task
+├── Adiciona task 0008 no JSON
+├── Re-gera implementation-plan.md com blueprint para 8 tasks
+├── Re-gera contexto-implementacao.md
+├── Valida consistencia
+└── "Task 0008 adicionada. Plano atualizado."
 
 Usuário: "implemente a task 0001 do PROJ-123"
 Agente:
 ├── Lê status-tasks.json: 0001 pendente
+├── Lê implementation-plan.md para guia por task com blueprint
 ├── Marca 0001 como "em_andamento"
 ├── Instala pre-commit hook
-├── Cria interface e implementação
+├── Implementa exatamente conforme blueprint (entity, DTOs, repository...)
 ├── Compila e testa
-├── Squash commits → git commit -m "PROJ-123-0001: Criar interface"
+├── Squash commits → git commit -m "PROJ-123-0001: Criar entidade + migration"
 ├── Marca 0001 como concluido
 ├── Atualiza contexto-implementacao.md
 └── "Task 0001 concluida. Ir para a 0002?"
@@ -539,6 +780,8 @@ git commit -m "PROJ-X: Resumo do ticket"
 
 ## 13. Verificação Arquitetural (Checkbox Obrigatório)
 
+- [ ] Verifiquei se `projects-context/<projeto>.md` existe (fonte de contexto mais rapida)
+- [ ] Li `projects-context/<projeto>.md` se disponivel
 - [ ] Li `settings.gradle`/`pom.xml`/`package.json` dos projetos
 - [ ] Mapeei os pacotes de cada módulo
 - [ ] Identifiquei corretamente a ordem de dependência entre módulos
@@ -580,7 +823,8 @@ Pipeline:
 2. **Code Scan** → mapeia projetos, módulos, arquivos relevantes
 3. **Perguntas** → analisa gaps e gera perguntas para o negócio
 4. **Refinamento** → gera documento técnico completo
-5. **Subtarefas** → gera `status-tasks.json` automaticamente via `generate-tasks.py`
+5. **Generate Plan** → `implementation-plan.md` via `generate_implementation_plan.py` (usa `projects-context/` se disponivel)
+6. **Validation** → `validate-ticket.sh` verifica schema JSON e consistência entre docs
 
 ### 15.3. Configuração
 
@@ -611,10 +855,13 @@ TECH LEAD (documentacao completa em 1 comando):
 | `jira-summary.md` | Resumo legível do ticket | Tech lead |
 | `impact-report.json` | Estrutura dos projetos de código | Agente IA |
 | `perguntas-negocio.md` | Tabela de perguntas para o negócio | PO / Analista |
-| `refinamento-tecnico.md` | Documento completo de refinamento | Time dev |
-| `status-tasks.json` | Subtarefas atômicas com observações técnicas | Agente IA / Dev |
+| `refinamento-tecnico.md` | Documento completo de refinamento com seções de observações técnicas por task e matriz de rastreabilidade | Time dev |
+| `status-tasks.json` | Subtarefas atômicas com observações técnicas, esforço estimado e enriquecimento via `projects-context/` | Agente IA / Dev |
 | `implementation-plan.md` | Plano de implementação, arquitetura, cronograma | Time dev |
-| `contexto-implementacao.md` | Resumo visual com tabela de subtarefas | Dev |
+| `contexto-implementacao.md` | Resumo visual com tabela de subtarefas, gráfico Mermaid de dependências e esforço estimado | Dev |
+| `description.md` | Conteúdo do Jira enriquecido com análise de negócio | Agente IA |
+| `roteiro-demo.md` | Script de apresentação para o negócio | PO / Dev |
+| `demo-artifacts/` | Postman collection, environment, queries SQL | Dev |
 
 ### 15.6. Exemplo de Perguntas Geradas
 
@@ -651,3 +898,235 @@ Para usar com qualquer Jira e qualquer projeto:
   ]
 }
 ```
+
+---
+
+## 16. Fluxo Interativo de Geração de Documentação
+
+Quando o usuário pedir "gere documentação para PROJ-123", siga este fluxo:
+
+### Passo 1: Pipeline base
+
+```bash
+./refine-ticket.sh PROJ-123 --refine
+```
+
+Isso gera `jira-data.json`, `jira-summary.md`, `impact-report.json`, perguntas, refinamento técnico e tasks iniciais (granularidade auto-detectada).
+
+### Passo 2: Verifique a granularidade sugerida
+
+A granularidade agora é auto-detectada baseada na complexidade do ticket:
+
+```bash
+./lib/generate-tasks.sh tickets/PROJ-123 --suggest
+```
+
+Exemplo de saída:
+```
+Granularidade sugerida: media
+Motivo: Pontuacao 7/10: complexidade media, 6-7 tasks recomendadas
+```
+
+Caso queira alterar manualmente, pergunte ao usuário:
+
+```
+Granularidade auto-detectada: media (6-7 tasks). Deseja alterar?
+
+a) Grossa (3 tasks) — recomendado para tickets simples
+   Ex: CRUD completo, Lógica de processamento, Demo
+
+b) Média (6-7 tasks) — cada camada de desenvolvimento
+   Ex: Migration+Entity, DTOs, Service, Controller, Testes, Demo
+
+c) Fina (10-11 tasks) — cada classe individualmente
+   Ex: Migration, Entity, DTOs, Repository, Mapper, Service, Controller, Testes, Demo
+```
+
+### Passo 3: Preview Interativo
+
+Use `--interactive` para preview com ajuste de tasks:
+
+```bash
+./lib/generate-tasks.sh tickets/PROJ-123 --interactive
+```
+
+O modo interativo mostra as tasks uma a uma e permite:
+- Alterar granularidade
+- Detalhar uma task específica (observações, esforço)
+- Confirmar ou cancelar
+
+Ou use `--preview` apenas para visualizar:
+
+```bash
+./lib/generate-tasks.sh tickets/PROJ-123 --granularity media --preview
+```
+
+Mostre a tabela gerada e pergunte confirmação:
+
+```
+Tasks para PROJ-123 no modo media (7 tasks):
+
+| ID | Descrição | Nível | Tipo | Depende |
+|----|-----------|-------|------|---------|
+| 0001 | Criar entidade + migration + repository | junior | criar-classe | - |
+| 0002 | Criar DTOs + mapper | junior | criar-classe | 0001 |
+| ... | ... | ... | ... | ... |
+
+Confirma? (s/n)
+```
+
+Se `n`, pergunte novamente a granularidade ou permita ajustes manuais.
+Se `s`, prossiga.
+
+### Passo 4: Geração completa
+
+Se a granularidade escolhida for diferente de `grossa`:
+
+```bash
+# Re-gerar tasks com a granularidade escolhida
+./lib/generate-tasks.sh tickets/PROJ-123 --granularity media
+
+# Gerar plano de implementaçao detalhado
+python3 lib/generate_implementation_plan.py tickets/PROJ-123
+
+# Atualizar contexto visual e validaçao
+./generate-context.sh PROJ-123
+./validate-ticket.sh PROJ-123
+./generate-index.sh
+```
+
+### Passo 5: Documentos gerados
+
+Informe ao usuário os documentos criados e onde encontrá-los.
+
+---
+
+## 17. Adicionar Task em Ticket Existente
+
+Quando o usuário pedir "adicione a task X ao ticket PROJ-123":
+
+### Passo 1: Leia o estado atual
+
+```bash
+# Ler tasks existentes
+cat tickets/PROJ-123/status-tasks.json | jq '.tarefas | length'
+```
+
+### Passo 2: Pergunte os detalhes da nova task
+
+```
+Detalhes da nova task:
+- Descrição: (ex: "Criar endpoints de exportação")
+- Nível: (junior / pleno / senior)
+- Tipo: (implementar / criar-classe / alterar-classe / testes / demo)
+- Depende de quais tasks? (ex: 0001, 0003)
+```
+
+### Passo 3: Adicione no JSON
+
+Calcule o próximo ID sequencial e insira:
+
+```bash
+# Exemplo: adicionar task 0008
+NEXT_ID=$(jq '[.tarefas[].id | tonumber] | max + 1 | tostring | "0000"[:4 - length] + .' tickets/PROJ-123/status-tasks.json)
+jq --arg id "0008" \
+   --arg desc "Criar endpoints de exportacao" \
+   --arg nivel "junior" \
+   --arg tipo "adicionar-endpoint" \
+   --arg deps '["0001"]' \
+   '.tarefas += [{
+     "id": $id,
+     "projeto": .tarefas[0].projeto,
+     "descricao": $desc,
+     "caminhoProjeto": .tarefas[0].caminhoProjeto,
+     "nivel": $nivel,
+     "tipo": $tipo,
+     "dependeDe": $deps | fromjson,
+     "bloqueadoPor": null,
+     "status": "pendente"
+   }]' tickets/PROJ-123/status-tasks.json > tmp.json && mv tmp.json tickets/PROJ-123/status-tasks.json
+```
+
+### Passo 4: Re-gerar documentos
+
+```bash
+# Re-gerar plano de implementaçao incluindo a nova task
+python3 lib/generate_implementation_plan.py tickets/PROJ-123
+
+# Re-gerar contexto visual
+./generate-context.sh PROJ-123
+
+# Validar consistencia
+./validate-ticket.sh PROJ-123
+
+# Atualizar indice
+./generate-index.sh
+```
+
+### Passo 5: Confirme ao usuário
+
+```
+Task 0008 adicionada ao PROJ-123.
+Plano de implementaçao atualizado com 8 tasks.
+Consistencia validada.
+```
+
+---
+
+## 18. Criar Subtasks no Jira
+
+Após gerar a documentação de um ticket, o agente DEVE perguntar ao usuário se deseja criar as subtasks no Jira.
+
+### Fluxo
+
+```
+Voce: "Documentacao gerada. Deseja criar as subtarefas no Jira agora?"
+Usuario: sim
+Agente: bash lib/jira-create-tasks.sh TICKET_ID
+```
+
+O script `lib/jira-create-tasks.sh` faz todo o trabalho interativo:
+1. Lê `status-tasks.json` e identifica tasks sem `jiraKey`
+2. Para cada task, mostra preview (descrição, nível, esforço, observações)
+3. Pergunta: "Criar subtask no Jira? (s/N/q-sair)"
+4. Se `s`: cria via API REST e salva `jiraKey` no JSON
+5. Se `N`: pula a task
+6. Se `q`: interrompe o processo
+
+### Modo automático
+
+```bash
+bash lib/jira-create-tasks.sh TICKET_ID --auto
+```
+
+Cria todas as subtasks sem confirmar individualmente.
+
+### Integração no Pipeline
+
+O `gerar-documentacao.sh` já pergunta automaticamente ao final:
+```
+Deseja criar subtasks no Jira agora? (s/N)
+```
+
+### Formato da Subtask no Jira
+
+Cada task vira uma subtask com:
+- **Summary:** `TICKET_ID-NNNN: descrição da task`
+- **Parent:** ticket pai (ex: SPR-3413)
+- **Description:** contém projeto, nível, tipo, esforço e observações técnicas
+- **Issue Type:** Sub-task
+
+Após a criação, o campo `jiraKey` é adicionado à task no `status-tasks.json`:
+```json
+{
+  "id": "0001",
+  "jiraKey": "SPR-3472",
+  "descricao": "..."
+}
+```
+
+### Verificação
+
+```bash
+# Listar tasks com jiraKey
+jq '.tarefas[] | {id, jiraKey, status}' tickets/TICKET_ID/status-tasks.json
