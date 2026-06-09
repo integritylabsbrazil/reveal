@@ -14,8 +14,10 @@
 | **Status** | {{STATUS}} |
 | **Responsável** | {{ASSIGNEE}} |
 | **Solicitante** | {{REPORTER}} |
+| **Squad** | {{SQUAD}} |
+| **Sistema** | {{SYSTEM}} |
+| **Epico** | {{EPIC}} |
 | **Componentes** | {{COMPONENTS}} |
-| **Épico** | {{EPIC}} |
 
 {% if CUSTOM_FIELDS %}
 ### Campos Personalizados
@@ -25,27 +27,79 @@
 {{CUSTOM_FIELDS}}
 {% endif %}
 
-## 2. Projetos e Módulos Afetados
+---
+
+## 2. Objetivo Funcional
+
+{{OBJETIVO_FUNCIONAL}}
+
+---
+
+## 3. Contexto de Negócio
+
+### Problema Atual
+
+{{CONTEXTO_PROBLEMA}}
+
+### Impacto
+
+{{CONTEXTO_IMPACTO}}
+
+### Objetivo Esperado
+
+{{CONTEXTO_OBJETIVO}}
+
+### Fluxo Atual
+
+```
+{{FLUXO_ATUAL}}
+```
+
+### Fluxo Novo
+
+```
+{{FLUXO_NOVO}}
+```
+
+---
+
+## 4. Impacto Técnico
+
+### Módulos Afetados
+
+{{MODULOS_AFETADOS}}
+
+### Componentes Afetados
+
+#### Backend
+
+{{COMPONENTES_BACKEND}}
+
+{% if COMPONENTES_FRONTEND %}
+#### Frontend
+
+{{COMPONENTES_FRONTEND}}
+{% endif %}
+
+#### Banco
+
+{{COMPONENTES_BANCO}}
+
+### Arquivos Identificados (Scan)
+
+Os arquivos abaixo foram identificados pelo scan de código como potencialmente relevantes para esta demanda:
 
 {{SCAN_HTML}}
 
-## 3. Visão Geral
+---
 
-**Tipo de alteração:** {{CHANGE_TYPE}}
-
-### Descrição
-
-{{DESCRIPTION}}
-
-## 4. Fluxo de Dados (Proposto)
+## 5. Fluxo Técnico
 
 ```
 {{FLOW_DIAGRAM}}
 ```
 
-## 5. Arquivos Sugeridos
-
-{{SUGGESTED_FILES}}
+---
 
 ## 6. Decisões Técnicas Pendentes
 
@@ -53,23 +107,67 @@
 |---------|---------|------|
 {{DECISIONS_TABLE}}
 
+---
+
 ## 7. Riscos Técnicos
 
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|-------------|---------|-----------|
 {{RISKS_TABLE}}
 
+---
+
 ## 8. Perguntas para o Negócio
 
 {{QUESTIONS_TABLE}}
 
-## 9. Subtarefas (Proposta)
+---
 
-{{TASKS_TABLE}}
+## 9. Configurações de Ambiente
 
-## 10. Checklist de Implementação
+{{CONFIG_AMBIENTE}}
+
+---
+
+## 10. Dependências Externas
+
+{{DEPENDENCIAS_EXTERNAS}}
+
+---
+
+## 11. Segurança e Permissões
+
+{{SEGURANCA_PERMISSOES}}
+
+---
+
+## 12. Observações Técnicas por Task
+
+Esta seção contém orientações específicas para desenvolvedores, com referência a padrões existentes no código fonte.
+
+{{TECHNICAL_OBSERVATIONS}}
+
+---
+
+## 13. Tasks
+
+{{TASKS_LIST}}
+
+Consulte **`implementation-plan.md`** para o guia detalhado de implementação por task, com código concreto (entity, DTO, migration, service, controller).
+
+---
+
+## 14. Checklist de Implementação
 
 {{CHECKLIST}}
+
+---
+
+## 15. Matriz de Rastreabilidade Negócio-Técnico
+
+Esta matriz mostra como as respostas às perguntas de negócio influenciam as decisões técnicas e as tasks de implementação.
+
+{{TRACEABILITY_MATRIX}}
 
 ---
 

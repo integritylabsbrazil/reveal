@@ -18,17 +18,8 @@ TICKETS_DIR="$SCRIPT_DIR/tickets"
 CONFIG_FILE="$SCRIPT_DIR/refine-config.json"
 LOCAL_CONFIG="$SCRIPT_DIR/refine-config.local.json"
 
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BLUE='\033[34m'; CYAN='\033[36m'; NC='\033[0m'
-
-# ============================================================
-# Utilitarios
-# ============================================================
-
-log_info()    { echo -e "${BLUE}[REFINE]${NC} $1"; }
-log_ok()      { echo -e "${GREEN}[REFINE]${NC} $1"; }
-log_warn()    { echo -e "${YELLOW}[REFINE]${NC} $1"; }
-log_error()   { echo -e "${RED}[REFINE]${NC} $1"; }
-log_section() { echo ""; echo -e "${CYAN}═══════════════════════════════════════${NC}"; echo -e "${CYAN}  $1${NC}"; echo -e "${CYAN}═══════════════════════════════════════${NC}"; echo ""; }
+LOG_PREFIX="REFINE"
+source "$SCRIPT_DIR/lib/utils.sh"
 
 usage() {
     cat <<EOF
@@ -44,6 +35,7 @@ Opcoes:
   --scan-impact          Apenas scan de codigo
   --questions            Apenas geracao de perguntas para o negocio
   --refinement           Apenas geracao do documento de refinamento tecnico
+  --plan                 Apenas geracao do plano de implementacao
   --all                  Executa todas as etapas (equivalente a --refine)
 
   --config FILE          Arquivo de configuracao (default: refine-config.json)
@@ -97,6 +89,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --refinement|-r)
             MODE="refinement"
+            shift
+            ;;
+        --plan|-P)
+            MODE="plan"
             shift
             ;;
         --config|-c)
@@ -325,6 +321,26 @@ run_refinement() {
 }
 
 # ============================================================
+# Pipeline: Generate Implementation Plan
+# ============================================================
+
+run_implementation_plan() {
+    log_section "Gerando Plano de Implementacao"
+
+    if [[ ! -f "$TICKET_DIR/jira-data.json" ]]; then
+        log_warn "jira-data.json nao encontrado. Execute --jira-deep primeiro."
+        return 0
+    fi
+
+    python3 "$SCRIPT_DIR/lib/generate_implementation_plan.py" "$TICKET_DIR"
+    if [[ -f "$TICKET_DIR/implementation-plan.md" ]]; then
+        log_ok "implementation-plan.md gerado"
+    else
+        log_warn "implementation-plan.md nao foi gerado"
+    fi
+}
+
+# ============================================================
 # Main
 # ============================================================
 
@@ -364,6 +380,9 @@ main() {
         refinement)
             run_refinement
             ;;
+        plan)
+            run_implementation_plan
+            ;;
         refine|*)
             run_jira_deep
             run_code_scan
@@ -385,14 +404,21 @@ main() {
     [[ -f "$TICKET_DIR/perguntas-negocio.md" ]]     && echo "    ✅ perguntas-negocio.md (perguntas p/ negocio)"
     [[ -f "$TICKET_DIR/perguntas-negocio.json" ]]   && echo "    ✅ perguntas-negocio.json (perguntas em JSON)"
     [[ -f "$TICKET_DIR/refinamento-tecnico.md" ]]   && echo "    ✅ refinamento-tecnico.md (documento completo)"
+    [[ -f "$TICKET_DIR/implementation-plan.md" ]]   && echo "    ✅ implementation-plan.md (plano de implementacao)"
+    echo ""
+
+    # Executar validacao automatica
+    if [[ -f "$SCRIPT_DIR/validate-ticket.sh" ]]; then
+        "$SCRIPT_DIR/validate-ticket.sh" "$TICKET_ID" 2>/dev/null || true
+    fi
+
     echo ""
     echo -e "${GREEN}Refinamento concluido!${NC}"
     echo ""
     echo "Proximos passos sugeridos:"
     echo "  1. Enviar perguntas-negocio.md para o PO/analista de negocio"
-    echo "  2. Apos respostas, refinar implementation-plan.md"
-    echo "  3. Gerar subtarefas em status-tasks.json"
-    echo "  4. Iniciar implementacao seguindo o AGENTS.md"
+    echo "  2. Revisar implementation-plan.md"
+    echo "  3. Iniciar implementacao seguindo o AGENTS.md"
     echo ""
 }
 

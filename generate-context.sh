@@ -124,6 +124,37 @@ exec 3>&1
     echo '```'
     echo ""
 
+    # Grafo Mermaid visual das dependencias
+    echo '```mermaid'
+    echo 'graph TD'
+    # Primeiro declarar todos os nodes
+    for id in $(jq -r '.tarefas[].id' "$TASKS_FILE"); do
+        desc=$(jq -r --arg id "$id" '.tarefas[] | select(.id == $id) | .descricao[:40]' "$TASKS_FILE")
+        echo "    ${id}[${desc}]"
+    done
+    # Depois as arestas
+    jq -r '.tarefas[] | select(.dependeDe | length > 0) | .id as $id | .dependeDe[] | "    " + . + " --> " + $id' "$TASKS_FILE" | sort
+    echo '```'
+    echo ""
+
+    # Esforco estimado
+    if jq -e '.tarefas[0].esforcoEstimado' "$TASKS_FILE" > /dev/null 2>&1; then
+        echo "## Esforço Estimado"
+        echo ""
+        echo "| Task | Horas | Nível | Tipo |"
+        echo "|------|-------|-------|------|"
+        for id in $(jq -r '.tarefas[].id' "$TASKS_FILE"); do
+            horas=$(jq -r --arg id "$id" '.tarefas[] | select(.id == $id) | .esforcoEstimado.horas' "$TASKS_FILE")
+            nivel=$(jq -r --arg id "$id" '.tarefas[] | select(.id == $id) | .nivel' "$TASKS_FILE")
+            tipo=$(jq -r --arg id "$id" '.tarefas[] | select(.id == $id) | .tipo' "$TASKS_FILE")
+            desc=$(jq -r --arg id "$id" '.tarefas[] | select(.id == $id) | .descricao[:50]' "$TASKS_FILE")
+            echo "| $id — $desc | ${horas}h | $nivel | $tipo |"
+        done
+        total_horas=$(jq '[.tarefas[] | .esforcoEstimado.horas] | add' "$TASKS_FILE")
+        echo ""
+        echo "**Total estimado:** ${total_horas}h"
+        echo ""
+    fi
     # Informacao de commits (se existir)
     if jq -e '.tarefas[0].commitHash' "$TASKS_FILE" > /dev/null 2>&1; then
         echo "## Commits"

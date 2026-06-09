@@ -80,28 +80,16 @@ def main():
 
     result = re.sub(r'\{\{(\w+)\}\}', replace_var, template)
 
-    # Substituir blocos condicionais: {% if KEY %}...{% endif %}
+    # Substituir blocos condicionais: {% if KEY %}CONTENT{% endif %}
+    # Nota: nao suporta aninhamento nem elif/else (nao necessario nos templates atuais)
     def replace_if(match):
-        inner = match.group(1)
-        # Extrair condicao
-        cond_match = re.match(r'if\s+(\w+)\s*(.*)', inner)
-        if not cond_match:
-            return match.group(0)
-        cond_key = cond_match.group(1)
-        rest = cond_match.group(2)
-        # Extrair conteudo (tudo apos a condicao ate endif)
-        content_match = re.search(r'([\s\S]*)', rest)
-        content = content_match.group(1) if content_match else rest
-
-        # Verificar se a condicao eh verdadeira (variavel existe e nao vazia)
-        if cond_key in variables and variables[cond_key] and variables[cond_key] not in ('', 'null', 'None'):
+        key = match.group(1).strip()
+        content = match.group(2)
+        if key in variables and variables[key] and variables[key] not in ('', 'null', 'None'):
             return content
         return ''
 
-    result = re.sub(r'\{%\s*(if\s+\w+[\s\S]*?)\s*%\}', replace_if, result)
-
-    # Remover blocos condicionais que nao foram processados
-    result = re.sub(r'\{% if.*?%\}.*?\{% endif %\}', '', result, flags=re.DOTALL)
+    result = re.sub(r'\{% if (\w+) %\}([\s\S]*?)\{% endif %\}', replace_if, result)
 
     print(result, end='')
 

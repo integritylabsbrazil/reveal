@@ -11,11 +11,8 @@
 
 set -euo pipefail
 
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BLUE='\033[34m'; NC='\033[0m'
-
-log_info()  { echo -e "${BLUE}[QUEST]${NC} $1" >&2; }
-log_ok()    { echo -e "${GREEN}[QUEST]${NC} $1" >&2; }
-log_warn()  { echo -e "${YELLOW}[QUEST]${NC} $1" >&2; }
+LOG_PREFIX="QUEST"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh"
 
 # ============================================================
 # Detectores de gap

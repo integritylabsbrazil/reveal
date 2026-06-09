@@ -188,28 +188,46 @@ if [[ -f "$SCRIPT_DIR/generate-index.sh" ]]; then
 fi
 
 # ============================================================
-# 7. Criacao de Subtasks no Jira (interativa)
+# 6.5. Geracao de especificacao OpenAPI (se aplicavel)
 # ============================================================
-if [[ -f "$SCRIPT_DIR/lib/jira-create-tasks.sh" && -f "$TICKET_DIR/status-tasks.json" ]]; then
-    JIRA_CREATE_SCRIPT="$SCRIPT_DIR/lib/jira-create-tasks.sh"
-    HAS_PENDING=$(jq '[.tarefas[] | select((.jiraKey // "") == "")] | length' "$TICKET_DIR/status-tasks.json" 2>/dev/null || echo 0)
-    if [[ "$HAS_PENDING" -gt 0 ]]; then
-        echo ""
-        log_info "Tasks sem jiraKey detectadas: $HAS_PENDING"
-        echo ""
-        read -r -p "Deseja criar subtasks no Jira agora? (s/N) " CREATE_REPLY
-        case "$CREATE_REPLY" in
-            s|S|sim|SIM)
-                run bash "$JIRA_CREATE_SCRIPT" "$TICKET_ID"
-                log_ok "Criacao de subtasks concluida"
-                ;;
-            *)
-                log_info "Criacao de subtasks pulada."
-                echo "  Para criar depois: bash lib/jira-create-tasks.sh $TICKET_ID"
-                ;;
-        esac
-        echo ""
+if [[ -f "$SCRIPT_DIR/lib/generate_openapi_spec.py" && -f "$TICKET_DIR/status-tasks.json" ]]; then
+    log_section "Gerando Especificacao OpenAPI"
+    OPENAPI_OUTPUT=$(python3 "$SCRIPT_DIR/lib/generate_openapi_spec.py" "$TICKET_DIR" 2>&1 || true)
+    if echo "$OPENAPI_OUTPUT" | grep -q "openapi.yaml gerado"; then
+        log_ok "openapi.yaml gerado"
+        if [[ -f "$TICKET_DIR/openapi.yaml" ]]; then
+            ENDPOINT_COUNT=$(python3 -c "import yaml; d=yaml.safe_load(open('$TICKET_DIR/openapi.yaml')); print(len(d.get('paths', {})))" 2>/dev/null || echo "0")
+            SCHEMA_COUNT=$(python3 -c "import yaml; d=yaml.safe_load(open('$TICKET_DIR/openapi.yaml')); print(len(d.get('components', {}).get('schemas', {})))" 2>/dev/null || echo "0")
+            echo "    Endpoints documentados: ${ENDPOINT_COUNT}"
+            echo "    Schemas documentados: ${SCHEMA_COUNT}"
+        fi
+    else
+        log_info "Ticket sem envolvimento de API — openapi.yaml nao gerado."
     fi
+fi
+
+# ============================================================
+# 7. Atualizacao da Descricao no Jira (interativa)
+# ============================================================
+if [[ -f "$SCRIPT_DIR/lib/jira-update-description.sh" && -f "$TICKET_DIR/status-tasks.json" ]]; then
+    UPDATE_SCRIPT="$SCRIPT_DIR/lib/jira-update-description.sh"
+    echo ""
+    log_info "A especificacao do ticket sera inserida na descricao do Jira"
+    echo "  (sem criacao de subtasks — tudo no description do ticket principal)"
+    echo ""
+    read -r -p "Deseja atualizar a descricao do ticket $TICKET_ID no Jira agora? (s/N) " UPDATE_REPLY
+    case "$UPDATE_REPLY" in
+        s|S|sim|SIM)
+            run bash "$UPDATE_SCRIPT" "$TICKET_ID"
+            log_ok "Descricao do ticket $TICKET_ID atualizada no Jira"
+            ;;
+        *)
+            log_info "Atualizacao da descricao pulada."
+            echo "  Para fazer depois: bash lib/jira-update-description.sh $TICKET_ID"
+            echo "  Para preview sem enviar: bash lib/jira-update-description.sh $TICKET_ID --dry-run"
+            ;;
+    esac
+    echo ""
 fi
 
 # ============================================================
@@ -225,7 +243,7 @@ for f in jira-data.json jira-summary.md impact-report.json \
          perguntas-negocio.md perguntas-negocio.json \
          refinamento-tecnico.md status-tasks.json \
          implementation-plan.md contexto-implementacao.md \
-         AGENTS-EXEC.md; do
+         AGENTS-EXEC.md openapi.yaml; do
     if [[ -f "$TICKET_DIR/$f" ]]; then
         echo "    ✅ $f"
     else
@@ -244,6 +262,7 @@ echo "  Proximos passos:"
 echo "    1. Revise perguntas-negocio.md e envie ao PO"
 echo "    2. Com as respostas, refine implementation-plan.md e status-tasks.json"
 echo "    3. Copie refinamento-tecnico.md para o Jira (campo de especificacao)"
-echo "    4. Inicie a implementacao via AGENTS.md ou repasse para o time dev"
+echo "    4. Se houver openapi.yaml, revise e anexe ao Jira (via update-description)"
+echo "    5. Inicie a implementacao via AGENTS.md ou repasse para o time dev"
 echo ""
 log_ok "Concluido!"

@@ -1,55 +1,159 @@
 # Plano de Implementação — PROJ-123
 
-## Visão Geral
-
-Descrever a visão geral da implementação.
-
-## Abordagem Técnica
-
-Descrever a abordagem técnica (padrões arquiteturais, camadas, etc.).
-
-## Componentes a Modificar/Criar
-
-### Módulo A (ex: core)
-
-| Arquivo | Ação | Descrição |
-|---------|------|-----------|
-| `src/main/java/.../...Service.java` | Criar | Interface do serviço |
-| `src/main/java/.../...ServiceImpl.java` | Criar | Implementação |
-
-### Módulo B (ex: api)
-
-| Arquivo | Ação | Descrição |
-|---------|------|-----------|
-| `src/main/java/.../...Controller.java` | Criar | Endpoint REST |
-| `src/main/java/.../...DTO.java` | Criar | DTO de request/response |
-
-## Fluxo da Implementação
-
-```
-[Entrada] → [Validação] → [Processamento] → [Persistência] → [Resposta]
-```
-
-## Riscos e Mitigações
-
-| Risco | Impacto | Probabilidade | Mitigação |
-|-------|---------|---------------|-----------|
-| Risco 1 | Alto | Média | Mitigação 1 |
-| Risco 2 | Médio | Baixa | Mitigação 2 |
-
-## Dependências
-
-- Lista de dependências externas
-
-## Considerações de Implantação
-
-- Considerações de deploy
-
-## Plano de Rollback
-
-1. Passo 1
-2. Passo 2
+**Título do ticket — exemplo genérico**
 
 ---
 
-*Template gerado pelo Reveal. Substituir pelos dados reais do ticket.*
+## Stack do Projeto
+
+| Tecnologia | |
+|-----------|---|
+| Linguagem | Java 11 |
+| Framework | Spring Boot 2.7.x |
+| Build | Maven 3.8+ |
+| Banco | PostgreSQL |
+| Migrações | Liquibase |
+| Testes | JUnit + Mockito |
+
+## Estrutura de Pacotes
+
+Pacote base: `com.exemplo.projeto`
+
+- `com.exemplo.projeto.modulo`
+- `com.exemplo.projeto.api`
+
+## Requisitos
+
+**Objetivo:** Implementar funcionalidade de exemplo conforme especificação.
+
+## Subtarefas
+
+| ID | Descrição | Nível | Tipo | Depende de |
+|----|-----------|-------|------|------------|
+| 0001 | Criar entidade + migration | junior | criar-classe | - |
+| 0002 | Implementar service + regras | pleno | implementar | 0001 |
+| 0003 | Criar controller REST | junior | adicionar-endpoint | 0002 |
+| 0004 | Testes unitários e integração | junior | testes | 0003 |
+
+## Dependências entre Tasks
+
+```
+0001 ──→ 0002 ──→ 0003 ──→ 0004
+```
+
+## Riscos
+
+| Risco | Probabilidade | Impacto | Mitigação |
+|-------|-------------|---------|-----------|
+| Risco 1 | Média | Alto | Mitigação 1 |
+
+## Configurações Necessárias
+
+| Propriedade | Valor | Descrição |
+|-------------|-------|-----------|
+| app.exemplo.feature | true | Feature flag |
+| app.exemplo.timeout | 5000 | Timeout em ms |
+
+## Pré-requisitos por Task
+
+### Task 0001
+
+- [ ] Migration Liquibase aplicada no banco
+- [ ] Sequence e tabela criadas
+
+### Task 0002
+
+- [ ] Task 0001 concluída
+- [ ] DTOs definidos
+
+### Task 0003
+
+- [ ] Task 0002 concluída
+
+### Task 0004
+
+- [ ] Tasks 0001-0003 concluídas
+
+## Segurança e Permissões
+
+| Endpoint | Método | Roles |
+|----------|--------|-------|
+| /api/exemplo | GET | EXEMPLO_CONSULTA |
+| /api/exemplo | POST | EXEMPLO_ADMIN |
+
+## Exemplos de Código do Projeto
+
+```java
+// Exemplo de entity
+@Entity
+@Table(name = "EXEMPLO")
+public class Exemplo {
+    @Id
+    @GeneratedValue(generator = "SEQ_EXEMPLO")
+    private Long id;
+}
+```
+
+## Guia por Task
+
+### Task 0001 — junior
+
+**Descrição:** Criar entidade + migration
+**Tipo:** criar-classe
+
+**Informações técnicas para implementação:**
+
+```
+PACOTE ALVO:
+  com.exemplo.projeto.exemplo
+
+Migration:
+  1. Criar sequence SEQ_EXEMPLO
+  2. Criar tabela EXEMPLO com colunas: ID (PK), NOME, ATIVO
+
+Entity:
+  - @Entity @Table(name = "EXEMPLO")
+  - Campos mapeados com @Id, @Column
+
+Repository:
+  - extends JpaRepository<Exemplo, Long>
+```
+
+**Sequência sugerida (seguindo padrões do projeto):**
+
+1. Migration Liquibase
+2. Entidade JPA
+3. DTOs
+4. Repository
+5. Service + Actions
+6. Controller REST
+7. Testes
+
+### Task 0002 — pleno
+
+...
+
+---
+
+## Modelo de Dados
+
+### Exemplo (Entity)
+
+**Tabela:** `EXEMPLO`
+
+| Campo | Coluna | Tipo | Obrigatório | Descrição |
+|-------|--------|------|-------------|-----------|
+| Nome | NOME | String | Sim | Nome do registro |
+| Ativo | ATIVO | Boolean | Sim | Indicador de ativo |
+
+## Plano de Rollback por Task
+
+| Task | Descrição | Comando | Efeito |
+|------|-----------|---------|--------|
+| 0001 | Criar entidade + migration | `git revert <hash>` | Remove tabelas criadas |
+| 0002 | Service + regras | `git revert <hash>` | Restaura código anterior |
+
+---
+
+*Plano gerado automaticamente em 2026-01-01 00:00:00*
+*Revise e ajuste conforme necessário antes de iniciar a implementação.*

@@ -15,24 +15,16 @@ JIRA_BASE="${JIRA_BASE:-https://seudominio.atlassian.net}"
 JIRA_API_VERSION="${JIRA_API_VERSION:-3}"
 JIRA_AGILE_VERSION="${JIRA_AGILE_VERSION:-1.0}"
 
-# Cores
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BLUE='\033[34m'; NC='\033[0m'
-
-# ============================================================
-# Utilitarios
-# ============================================================
-
-log_info()  { echo -e "${BLUE}[JIRA]${NC} $1" >&2; }
-log_ok()    { echo -e "${GREEN}[JIRA]${NC} $1" >&2; }
-log_warn()  { echo -e "${YELLOW}[JIRA]${NC} $1" >&2; }
-log_error() { echo -e "${RED}[JIRA]${NC} $1" >&2; }
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOG_PREFIX="JIRA"
+source "$SCRIPT_DIR/utils.sh"
 
 load_credentials() {
-    if [[ -n "${JIRA_USER:-}" && -n "${JIRA_TOKEN:-}" ]]; then
-        return 0
-    fi
     if [[ -f "$HOME/.jira-credentials" ]]; then
         IFS=':' read -r JIRA_USER JIRA_TOKEN < "$HOME/.jira-credentials"
+        return 0
+    fi
+    if [[ -n "${JIRA_USER:-}" && -n "${JIRA_TOKEN:-}" ]]; then
         return 0
     fi
     log_error "Credenciais Jira nao encontradas."
@@ -46,10 +38,18 @@ jira_api_get() {
     local url="${JIRA_BASE}${path}"
     local response_file
     response_file=$(mktemp)
+    local proxy_args=()
+    if [[ -n "${HTTPS_PROXY:-}" ]]; then
+        proxy_args=(--proxy "$HTTPS_PROXY")
+    elif [[ -n "${HTTP_PROXY:-}" ]]; then
+        proxy_args=(--proxy "$HTTP_PROXY")
+    fi
     local http_code
     http_code=$(curl -s -w "%{http_code}" -o "$response_file" \
         -u "$JIRA_USER:$JIRA_TOKEN" \
         -H "Accept: application/json" \
+        --connect-timeout 10 --max-time 60 \
+        "${proxy_args[@]}" \
         "$url" || echo "000")
     if [[ "$http_code" != "200" && "$http_code" != "201" ]]; then
         log_warn "HTTP $http_code em $path"
@@ -120,6 +120,7 @@ jira_deep_fetch() {
     basic_data=$(jira_api_get "/rest/api/${JIRA_API_VERSION}/issue/${ticket_id}?expand=renderedFields,changelog,names,schema") || {
         local http_code
         http_code=$(curl -s -o /dev/null -w "%{http_code}" -u "$JIRA_USER:$JIRA_TOKEN" \
+            --connect-timeout 10 --max-time 60 \
             "${JIRA_BASE}/rest/api/${JIRA_API_VERSION}/issue/${ticket_id}" 2>/dev/null || echo "000")
         log_error "Falha ao buscar ticket $ticket_id (HTTP $http_code)"
         case "$http_code" in
@@ -175,6 +176,64 @@ jira_deep_fetch() {
     sub_count=$(echo "$subtasks" | jq 'length')
     log_ok "Subtasks: $sub_count"
 
+    # 4.1. Fetch individual de cada subtask (description + customFields)
+    if [[ "$sub_count" -gt 0 ]]; then
+        log_info "Buscando detalhes individuais das subtasks..."
+        echo "$subtasks" > "$tmp_dir/subtasks_input.json"
+        python3 -c "
+import json, os, subprocess, sys
+
+JIRA_BASE = os.environ.get('JIRA_BASE', '')
+JIRA_USER = os.environ.get('JIRA_USER', '')
+JIRA_TOKEN = os.environ.get('JIRA_TOKEN', '')
+
+with open('$tmp_dir/subtasks_input.json') as f:
+    subtasks = json.load(f)
+
+def jira_get(path):
+    url = f'{JIRA_BASE}{path}'
+    result = subprocess.run(
+        ['curl', '-s', '-u', f'{JIRA_USER}:{JIRA_TOKEN}',
+         '-H', 'Accept: application/json',
+         '--connect-timeout', '10', '--max-time', '30',
+         url],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0 or not result.stdout:
+        return None
+    try:
+        return json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return None
+
+enhanced = []
+for s in subtasks:
+    key = s.get('key', '')
+    print(f'  Fetching {key}...')
+    detail = jira_get(f'/rest/api/3/issue/{key}?expand=renderedFields,names,schema')
+    if not detail:
+        print(f'  [WARN] Falha ao buscar {key}, mantendo basico')
+        enhanced.append(s)
+        continue
+    fields = detail.get('fields', {})
+    rendered = detail.get('renderedFields', {})
+    s['description'] = fields.get('description')
+    s['descriptionRendered'] = rendered.get('description', '')
+    s['customFields'] = [{'key': k, 'value': v} for k, v in fields.items() if k.startswith('customfield_')]
+    s['issuetype'] = fields.get('issuetype', {}).get('name', 'Sub-task')
+    enhanced.append(s)
+    print(f'  [OK] {key} detalhado')
+
+with open('$tmp_dir/subtasks_enhanced.json', 'w') as f:
+    json.dump(enhanced, f)
+" 2>/dev/null || log_warn "Falha ao buscar detalhes das subtasks, mantendo dados basicos"
+
+        if [[ -f "$tmp_dir/subtasks_enhanced.json" ]]; then
+            subtasks=$(cat "$tmp_dir/subtasks_enhanced.json")
+            log_ok "Subtasks detalhadas: $(echo "$subtasks" | jq 'length')"
+        fi
+    fi
+
     # 5. Comentarios (ultimos 50)
     log_info "Buscando comentarios..."
     local comments="[]"
@@ -228,97 +287,14 @@ jira_deep_fetch() {
     # 7.5. Download de anexos (com dedup por MD5)
     local attach_dir="$output_dir/attachments"
     local updated_attachments
-    updated_attachments=$(echo "$attachments" | python3 -c "
-import sys, json, hashlib, os, subprocess
+    updated_attachments=$(echo "$attachments" | python3 "$SCRIPT_DIR/jira_attachment_dedup.py" "$attach_dir" \
+        2>/dev/null) || attachments="$attachments"
 
-data = json.load(sys.stdin)
-if not data:
-    print(json.dumps(data))
-    sys.exit(0)
-
-attach_dir = os.path.join('$attach_dir')
-os.makedirs(attach_dir, exist_ok=True)
-
-# Track already-seen MD5s to avoid duplicates
-seen_md5 = {}
-result = []
-
-for att in data:
-    entry = dict(att)
-    content_url = att.get('contentUrl', '')
-    filename = att.get('filename', 'unknown')
-    
-    if not content_url:
-        entry['downloadedPath'] = None
-        entry['downloadError'] = 'no contentUrl'
-        result.append(entry)
-        continue
-    
-    # Download to temp
-    tmp = os.path.join(attach_dir, '.tmp_' + filename)
-    try:
-        # Use curl with auth from env
-        env = os.environ.copy()
-        user = env.get('JIRA_USER', '')
-        token = env.get('JIRA_TOKEN', '')
-        subprocess.run(
-            ['curl', '-sL', '-o', tmp, '-u', f'{user}:{token}', content_url],
-            check=True, capture_output=True, timeout=30
-        )
-    except Exception as e:
-        entry['downloadedPath'] = None
-        entry['downloadError'] = str(e)
-        result.append(entry)
-        continue
-    
-    # Calculate MD5
-    md5 = hashlib.md5()
-    with open(tmp, 'rb') as f:
-        for chunk in iter(lambda: f.read(65536), b''):
-            md5.update(chunk)
-    md5_hex = md5.hexdigest()
-    
-    # Dedup: check if we already have this file
-    if md5_hex in seen_md5:
-        os.remove(tmp)
-        entry['downloadedPath'] = seen_md5[md5_hex]
-        entry['md5'] = md5_hex
-        result.append(entry)
-        continue
-    
-    # Unique file: move to final name
-    final_path = os.path.join(attach_dir, filename)
-    # Handle name collision
-    counter = 1
-    while os.path.exists(final_path):
-        name, ext = os.path.splitext(filename)
-        final_path = os.path.join(attach_dir, f'{name}_{counter}{ext}')
-        counter += 1
-    
-    os.rename(tmp, final_path)
-    seen_md5[md5_hex] = final_path
-    entry['downloadedPath'] = final_path
-    entry['md5'] = md5_hex
-    result.append(entry)
-
-print(json.dumps(result))
-") || attachments="$attachments"  # fallback: keep original if python fails
-
-    # Save updated attachments back to temp file
     if [[ -n "$updated_attachments" && "$updated_attachments" != "null" ]]; then
         attachments="$updated_attachments"
         echo "$attachments" > "$tmp_dir/attachments.json"
         local unique_count
-        unique_count=$(echo "$attachments" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-seen = set()
-for att in data:
-    p = att.get('downloadedPath')
-    if p:
-        seen.add(p)
-print(len(seen))
-" 2>/dev/null || echo "?")
+        unique_count=$(echo "$attachments" | python3 "$SCRIPT_DIR/jira_count_attachments.py" 2>/dev/null || echo "?")
         log_ok "Anexos baixados: $unique_count arquivos unicos em $attach_dir"
     fi
 
@@ -328,20 +304,8 @@ print(len(seen))
     local agile_response
     agile_response=$(jira_api_get "/rest/agile/${JIRA_AGILE_VERSION}/issue/${ticket_id}") || agile_response=""
     if [[ -n "$agile_response" ]]; then
-        agile_data=$(echo "$agile_response" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-except Exception:
-    print('{\"sprint\": null, \"storyPoints\": null, \"epic\": null}')
-    sys.exit(0)
-fields = data.get('fields', {})
-print(json.dumps({
-    'sprint': fields.get('sprint') or fields.get('customfield_10007'),
-    'storyPoints': fields.get('storyPoints') or fields.get('customfield_10004'),
-    'epic': fields.get('epic')
-}))
-" 2>/dev/null || echo '{"sprint":null,"storyPoints":null,"epic":null}')
+        agile_data=$(echo "$agile_response" | python3 "$SCRIPT_DIR/jira_agile_parse.py" \
+            2>/dev/null || echo '{"sprint":null,"storyPoints":null,"epic":null}')
     fi
     log_ok "Dados ageis obtidos"
 
@@ -432,9 +396,9 @@ print(json.dumps({
         if [[ "$sub_len" -gt 0 ]]; then
             echo "## Subtasks"
             echo ""
-            echo "| Issue | Resumo | Status |"
-            echo "|-------|--------|--------|"
-            echo "$full_data" | jq -r '.subtasks[] | "| [\(.key)](\(env.JIRA_BASE)/browse/\(.key)) | \(.summary) | \(.status) |"'
+            echo "| Issue | Resumo | Status | Descricao |"
+            echo "|-------|--------|--------|-----------|"
+            echo "$full_data" | jq -r '.subtasks[] | "| [\(.key)](\(env.JIRA_BASE)/browse/\(.key)) | \(.summary) | \(.status) | \(.descriptionRendered // "" | gsub("<[^>]*>"; "") | .[0:100]) |"'
             echo ""
         fi
 

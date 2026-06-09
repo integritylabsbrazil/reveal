@@ -11,12 +11,8 @@
 
 set -euo pipefail
 
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BLUE='\033[34m'; NC='\033[0m'
-
-log_info()  { echo -e "${BLUE}[SCAN]${NC} $1" >&2; }
-log_ok()    { echo -e "${GREEN}[SCAN]${NC} $1" >&2; }
-log_warn()  { echo -e "${YELLOW}[SCAN]${NC} $1" >&2; }
-log_error() { echo -e "${RED}[SCAN]${NC} $1" >&2; }
+LOG_PREFIX="SCAN"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh"
 
 # ============================================================
 # Deteccao de linguagem e ferramentas
@@ -313,6 +309,7 @@ import sys, json
 print(json.dumps(sys.stdin.read().strip()))
 ")
     fi
+    [[ -z "$agents" ]] && agents='""'
     echo "\"agents\": $agents,"
 
     # Arquivos SDD encontrados

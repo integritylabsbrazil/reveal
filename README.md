@@ -13,37 +13,46 @@ projetos Java, JavaScript/TypeScript e Genéricos via configuração.
 reveal/
 ├── refine-ticket.sh              ← Orquestrador principal
 ├── gerar-documentacao.sh         ← Pipeline completo em 1 comando (--dry-run)
+├── setup.sh                      ← Setup interativo do projeto
 ├── refine-config.json            ← Configuração padrão (Jira, projetos)
 ├── refine-config.local.json      ← Configuração local (gitignored)
 ├── generate-context.sh           ← Gera contexto-implementacao.md
 ├── generate-index.sh             ← Regenera INDEX.md
-├── validate-ticket.sh            ← Valida consistência entre docs
+├── validate-ticket.sh            ← Valida consistência entre docs + schema JSON
 ├── completions.sh                ← Auto-complete bash para IDs de ticket
 │
 ├── lib/
+│   ├── utils.sh                  ← Funções compartilhadas de logging
 │   ├── jira-fetch.sh             ← Deep fetch Jira + download attachments (MD5)
 │   ├── code-scan.sh              ← Scan de código multi-linguagem
 │   ├── generate-questions.sh     ← Perguntas para o negócio
 │   ├── generate-refinement.sh    ← Documento de refinamento (template-driven)
 │   ├── generate-tasks.sh         ← Wrapper shell para generate_tasks.py
+│   ├── utils.py                  ← Funções Python compartilhadas (load_json, validação)
+│   ├── render_template.py        ← Renderizador Mustache-like {{VAR}}
+│   ├── assemble_jira.py          ← Monta dados do Jira para processamento
+│   ├── generate_implementation_plan.py ← Plano de implementação técnica
 │   ├── generate_tasks.py         ← Gera status-tasks.json (config-driven)
-│   └── render_template.py        ← Renderizador Mustache-like {{VAR}}
+│   ├── generate_per_task_jira_text.py ← Texto Jira por subtarefa
+│   ├── jira_agile_parse.py       ← Parse de dados ágeis (sprints, pontos)
+│   ├── jira_attachment_dedup.py  ← Download de attachments com dedup MD5
+│   └── jira_count_attachments.py ← Contagem de attachments baixados
 │
 ├── templates/
-│   ├── perguntas-negocio-template.md
 │   └── refinamento-tecnico-template.md
 │
 ├── hooks/
 │   └── commit-msg                ← Hook para validar mensagens de commit
 │
 ├── tests/
-│   └── test_generate_tasks.py    ← 22 testes unitários (stdlib unittest)
+│   ├── test_generate_tasks.py    ← 22 testes unitários
+│   ├── test_utils.py             ← 20 testes unitários
+│   └── test_extracted.py         ← 5 testes unitários
 │
 ├── tickets/                      ← Documentação de tickets (um por pasta)
 │   ├── _template/                ← Modelo para novos tickets
 │   └── INDEX.md                  ← Índice gerado por generate-index.sh
 │
-├── create-ticket-doc.sh          ← [DEPRECATED] Substituído por gerar-documentacao.sh
 ├── AGENTS.md                     ← Instruções detalhadas para agentes de IA
 └── README.md                     ← Este arquivo
 ```
@@ -76,22 +85,22 @@ export JIRA_BASE="https://meujira.atlassian.net"
 
 ## Documentos Gerados por Ticket
 
-| Arquivo | Finalidade |
-|---------|-----------|
-| `jira-data.json` | Dados brutos da API Jira + attachments baixados |
-| `jira-summary.md` | Resumo legível do ticket |
-| `description.md` | Descrição extraída do Jira |
-| `impact-report.json` | Estrutura dos projetos escaneados |
-| `perguntas-negocio.md` | Perguntas para o PO/analista |
-| `refinamento-tecnico.md` | Documento completo de refinamento |
-| `implementation-plan.md` | Plano técnico, riscos, cronograma |
-| `roteiro-demo.md` | Script de apresentação ao negócio |
-| `demo-artifacts/postman-collection.json` | Collection Postman por cenário |
-| `demo-artifacts/postman-environment.json` | Variáveis de ambiente da demo |
-| `demo-artifacts/queries.sql` | Consultas SQL para demonstrar dados |
-| `status-tasks.json` | Subtarefas com nível de senioridade + status |
-| `contexto-implementacao.md` | Resumo visual com tabela de progresso |
-| `attachments/` | Imagens baixadas do Jira (dedup por MD5) |
+| Arquivo | Finalidade | Gerado por |
+|---------|-----------|------------|
+| `jira-data.json` | Dados brutos da API Jira + attachments baixados | pipeline |
+| `jira-summary.md` | Resumo legível do ticket | pipeline |
+| `impact-report.json` | Estrutura dos projetos escaneados | pipeline |
+| `perguntas-negocio.md` | Perguntas para o PO/analista | pipeline |
+| `refinamento-tecnico.md` | Documento completo de refinamento | pipeline |
+| `implementation-plan.md` | Plano técnico, riscos, cronograma | pipeline (`--plan`) |
+| `status-tasks.json` | Subtarefas com nível de senioridade + status | pipeline |
+| `contexto-implementacao.md` | Resumo visual com tabela de progresso | pipeline |
+| `attachments/` | Imagens baixadas do Jira (dedup por MD5) | pipeline |
+| `description.md` | Descrição enriquecida com análise de negócio | agente IA |
+| `roteiro-demo.md` | Script de apresentação ao negócio | agente IA |
+| `demo-artifacts/postman-collection.json` | Collection Postman por cenário | agente IA |
+| `demo-artifacts/postman-environment.json` | Variáveis de ambiente da demo | agente IA |
+| `demo-artifacts/queries.sql` | Consultas SQL para demonstrar dados | agente IA |
 
 ## Fluxo de Trabalho
 
@@ -119,20 +128,20 @@ export JIRA_BASE="https://meujira.atlassian.net"
 
 **O que é criado em `tickets/PROJ-123/`:**
 
-| Arquivo | Finalidade |
-|---------|-----------|
-| `jira-data.json` | Dados brutos + attachments (imagens) |
-| `jira-summary.md` | Resumo do ticket |
-| `description.md` | Descrição extraída |
-| `impact-report.json` | Estrutura dos projetos escaneados |
-| `perguntas-negocio.md` | Perguntas para o PO |
-| `refinamento-tecnico.md` | Refinamento técnico completo |
-| `implementation-plan.md` | Plano de implementação |
-| `roteiro-demo.md` | Script de apresentação |
-| `demo-artifacts/` | Postman collection + queries SQL |
-| `status-tasks.json` | **3 subtarefas** verticais com nível de senioridade |
-| `contexto-implementacao.md` | Resumo visual com progresso |
-| `attachments/` | Imagens baixadas do Jira |
+| Arquivo | Finalidade | Gerado por |
+|---------|-----------|------------|
+| `jira-data.json` | Dados brutos + attachments (imagens) | pipeline |
+| `jira-summary.md` | Resumo do ticket | pipeline |
+| `impact-report.json` | Estrutura dos projetos escaneados | pipeline |
+| `perguntas-negocio.md` | Perguntas para o PO | pipeline |
+| `refinamento-tecnico.md` | Refinamento técnico completo | pipeline |
+| `implementation-plan.md` | Plano de implementação | pipeline (`--plan`) |
+| `status-tasks.json` | **3 subtarefas** verticais com nível de senioridade | pipeline |
+| `contexto-implementacao.md` | Resumo visual com progresso | pipeline |
+| `attachments/` | Imagens baixadas do Jira | pipeline |
+| `description.md` | Descrição enriquecida | agente IA |
+| `roteiro-demo.md` | Script de apresentação | agente IA |
+| `demo-artifacts/` | Postman collection + queries SQL | agente IA |
 
 > Use `--dry-run` para ver o que seria feito sem criar nada.
 
@@ -200,6 +209,7 @@ O `generate_tasks.py` lê a configuração do projeto e gera tarefas por:
 ./refine-ticket.sh PROJ-123 --scan-impact     # Apenas scan de código
 ./refine-ticket.sh PROJ-123 --questions       # Apenas perguntas
 ./refine-ticket.sh PROJ-123 --refinement      # Apenas refinamento
+./refine-ticket.sh PROJ-123 --plan            # Apenas plano de implementação
 
 # Status e validação
 ./validate-ticket.sh PROJ-123                 # Valida consistência
@@ -235,6 +245,34 @@ source completions.sh
 
 Suporta múltiplos projetos (ex: backend + frontend) no array `projects[]`.
 
+## Schema Validation
+
+O `validate-ticket.sh` valida a estrutura dos JSONs gerados (`status-tasks.json`,
+`impact-report.json`, `jira-data.json`) contra schemas embutidos:
+
+- Presença de campos obrigatórios
+- Tipos corretos (string, array, objeto)
+- Dependências entre tasks válidas (não referenciam IDs inexistentes)
+
+A validação roda **automaticamente** ao final do pipeline `--refine`.
+Para rodar manualmente:
+
+```bash
+./validate-ticket.sh PROJ-123
+```
+
+## Proxy HTTP
+
+Se o ambiente exigir proxy para acessar o Jira, configure via variáveis de
+ambiente padrão:
+
+```bash
+export HTTPS_PROXY="http://proxy.empresa.com:8080"
+export HTTP_PROXY="http://proxy.empresa.com:8080"
+```
+
+O `jira-fetch.sh` respeita estas variáveis automaticamente nas chamadas curl.
+
 ## Variáveis de Ambiente
 
 | Variável | Obrigatória | Descrição |
@@ -248,10 +286,29 @@ Fallback: `~/.jira-credentials` (formato: `usuario:token`)
 ## Testes
 
 ```bash
-python3 -m unittest tests.test_generate_tasks
+python3 -m unittest discover tests
 ```
 
-22 testes, stdlib apenas (sem dependências externas).
+52 testes em 3 suites, stdlib apenas (sem dependências externas).
+
+| Suite | Testes | O que cobre |
+|-------|--------|-------------|
+| `test_generate_tasks.py` | 22 | Geração de subtarefas por projeto |
+| `test_utils.py` | 20 | Funções compartilhadas de validação |
+| `test_extracted.py` | 5 | Scripts extraídos do bash para Python |
+
+## Troubleshooting
+
+| Problema | Causa provável | Solução |
+|----------|---------------|---------|
+| `curl: (28) Connection timed out` | Sem acesso à rede do Jira | Configure `HTTPS_PROXY` ou verifique VPN |
+| `JIRA_USER/JIRA_TOKEN não definidos` | Credenciais ausentes | Exporte as vars ou crie `~/.jira-credentials` |
+| `jq: command not found` | Falta jq | Instale: `apt install jq` ou `brew install jq` |
+| `0 tarefas` no contexto | `generate_tasks.py` falhou | Verifique se `refine-config.local.json` existe e tem `projects[]` |
+| `ERRO: status-tasks.json tem X tasks, contexto-implementacao.md mostra Y` | Documentos dessincronizados | Execute `./generate-context.sh TICKET_ID` e `./validate-ticket.sh TICKET_ID` |
+| `ERRO: description.md está vazio` | Documento não gerado pelo agente | O `description.md` é criado pelo agente IA, não pelo pipeline |
+| `refine-config.json` não encontrado | Configuração não copiada | `cp refine-config.json refine-config.local.json` e ajuste |
+| `ERRO: task X depende de Y que nao existe` | Dependência inválida no JSON | Edite `dependeDe` no `status-tasks.json` manualmente |
 
 ## Licença
 

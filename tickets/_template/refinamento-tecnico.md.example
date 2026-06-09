@@ -1,6 +1,6 @@
 # Refinamento Técnico — PROJ-123
 
-**Título do ticket — exemplo genérico**
+**Título do ticket — exemplo de funcionalidade**
 
 ---
 
@@ -12,57 +12,148 @@
 | **Tipo** | Story |
 | **Prioridade** | Medium |
 | **Status** | To Do |
+| **Responsável** | Fulano |
+| **Solicitante** | Cicrano |
+| **Squad** | Squad Exemplo |
+| **Sistema** | sistema-exemplo |
 | **Épico** | PROJ-100: Épico principal |
+| **Componentes** | backend, frontend |
 
-## 2. Projetos e Módulos Afetados
+## 2. Objetivo Funcional
 
-### Projeto: meu-projeto-backend
+Descrever resumidamente o objetivo funcional da demanda.
 
-| Atributo | Valor |
-|----------|-------|
-| **Linguagem** | Java |
-| **Build** | Gradle |
+## 3. Contexto de Negócio
 
-## 3. Visão Geral
+### Problema Atual
 
-**Tipo de alteração:** criação, api
+Descrever o problema atual que motiva a demanda.
 
-## 4. Fluxo de Dados (Proposto)
+### Impacto
+
+Descrever o impacto do problema no negócio.
+
+### Objetivo Esperado
+
+Descrever o objetivo esperado com a implementação.
+
+### Fluxo Atual
 
 ```
-[Entrada] → [Validação] → [Processamento] → [Resposta]
+[Entrada manual] → [Planilha] → [Processamento manual] → [Arquivo]
 ```
 
-## 5. Decisões Técnicas Pendentes
+### Fluxo Novo
+
+```
+[Entrada sistema] → [Validação automática] → [Processamento] → [Banco]
+```
+
+## 4. Impacto Técnico
+
+### Módulos Afetados
+
+- modulo-core
+- modulo-api
+- modulo-persistence
+
+### Componentes Afetados
+
+#### Backend
+
+- Controller: `ExemploController.java`
+- Service: `ExemploService.java`, `ExemploValidatorAction.java`
+- Repository: `ExemploRepository.java`
+- Entity: `Exemplo.java`
+- DTOs: `ExemploInput.java`, `ExemploOutput.java`, `ExemploFilter.java`
+
+#### Banco
+
+- Tabela: `EXEMPLO`
+- Sequence: `SEQ_EXEMPLO`
+
+## 5. Fluxo Técnico
+
+```
+[HTTP Request]
+  │
+  ├─> [Controller] valida entrada
+  │     └─ Erro → 400 Bad Request
+  │
+  ├─> [Service] aplica regras de negócio
+  │     ├─ Validação
+  │     ├─ Processamento
+  │     └─ Persistência
+  │
+  └─> [Repository] salva no banco
+        └─ Sucesso → 201 Created
+```
+
+## 6. Decisões Técnicas Pendentes
 
 | Decisão | Impacto | Área |
 |---------|---------|------|
-| A chamada deve ser síncrona ou assíncrona? | Alto | Arquitetura |
+| Como tratar duplicidade de registro? | Alto | Regra de negócio |
+| Deve ser síncrono ou assíncrono? | Médio | Arquitetura |
 
-## 6. Riscos Técnicos
+## 7. Riscos Técnicos
 
 | Risco | Probabilidade | Impacto | Mitigação |
 |-------|-------------|---------|-----------|
-| Dependência externa indisponível | Média | Alto | Retry + fallback |
+| Impacto em funcionalidades existentes | Média | Alto | Testes de regressão |
 
-## 7. Subtarefas (Proposta)
+## 8. Perguntas para o Negócio
+
+| # | Pergunta | Categoria | Impacto |
+|---|----------|-----------|---------|
+| 1 | Quais os critérios de aceitação? | Especificação | Alto |
+| 2 | Existe contrato da API de integração? | Integração | Alto |
+
+## 9. Configurações de Ambiente
+
+- Feature flag `feature.exemplo.habilitado` a ser criada
+- Propriedade `app.exemplo.casas-decimais` em application.yml
+- Timeout de integração a ser definido
+
+## 10. Dependências Externas
+
+- MapStruct (já existe no projeto)
+- Lombok (já existe no projeto)
+- API externa de exemplo (contrato a confirmar)
+
+## 11. Segurança e Permissões
+
+| Endpoint | Método | Roles |
+|----------|--------|-------|
+| /api/exemplo | GET | EXEMPLO_CONSULTA |
+| /api/exemplo | POST | EXEMPLO_ADMIN |
+
+## 12. Subtarefas
 
 | # | Projeto | Descrição | Status | Tipo |
 |---|---------|-----------|--------|------|
-| 0001 | meu-projeto-backend | Criar interface de serviço | pendente | criar-classe |
-| 0002 | meu-projeto-backend | Implementar classe concreta | pendente | criar-classe |
-| 0003 | meu-projeto-backend | Criar endpoint REST | pendente | adicionar-endpoint |
+| 0001 | backend | Implementar entidade + repository | pendente | criar-classe |
+| 0002 | backend | Implementar service + regras | pendente | implementar |
+| 0003 | backend | Implementar controller REST | pendente | adicionar-endpoint |
+| 0004 | backend | Testes unitários e integração | pendente | testes |
 
-## 8. Checklist de Implementação
+## 13. Texto para Subtarefas (copiar para o Jira)
 
-- [ ] Análise validada com PO
-- [ ] Perguntas respondidas
-- [ ] Modelos criados
-- [ ] Interface definida
-- [ ] Endpoint implementado
-- [ ] Testes unitários
-- [ ] Documentação atualizada
+...
+
+## 14. Checklist de Implementação
+
+- [ ] **Análise:** Entendimento validado com PO
+- [ ] **Perguntas:** Todas respondidas
+- [ ] **Modelos:** DTOs/entidades criados
+- [ ] **Integração:** Endpoint implementado
+- [ ] **Lógica:** Regras de negócio implementadas
+- [ ] **Testes unitários:** Cobertura mínima
+- [ ] **Testes integração:** Fluxo completo
+- [ ] **Configuração:** Parâmetros configurados
+- [ ] **Review:** Code review realizado
+- [ ] **QA:** Testes de aceite executados
 
 ---
 
-*Documento gerado em 2026-01-01T00:00:00 pelo Reveal*
+*Documento gerado em 2026-01-01 00:00:00 pelo sistema de refinamento técnico*

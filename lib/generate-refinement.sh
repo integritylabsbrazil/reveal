@@ -11,11 +11,8 @@
 
 set -euo pipefail
 
-RED='\033[31m'; GREEN='\033[32m'; YELLOW='\033[33m'; BLUE='\033[34m'; NC='\033[0m'
-
-log_info()  { echo -e "${BLUE}[REFINE]${NC} $1" >&2; }
-log_ok()    { echo -e "${GREEN}[REFINE]${NC} $1" >&2; }
-log_warn()  { echo -e "${YELLOW}[REFINE]${NC} $1" >&2; }
+LOG_PREFIX="REFINE"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh"
 
 # ============================================================
 # Analise de impacto tecnico
@@ -249,9 +246,6 @@ print(f'**Total:** {total} tarefas (**Concluidas:** {concluidas} | **Pendentes:*
     local change_type
     change_type=$(echo "$impact" | jq -r '.tipoAlteracao')
 
-    local change_types_file="/tmp/_refine_changetypes_$$"
-
-    # Salvar dados para Python via arquivos temporarios (evita problemas de escaping)
     local py_scan_json="/tmp/_refine_scanjson_$$.json"
     echo "$scan_files_json" > "$py_scan_json"
     local py_desc="/tmp/_refine_desc_$$.txt"
@@ -329,7 +323,7 @@ print('- (criar) Testes unitarios para as novas classes')
 print('- (criar) Testes de integracao para o fluxo completo')
 " 2>/dev/null || echo "*Nenhuma sugestao gerada*")
 
-    # Limpar temporarios
+    # Limpar temporarios do scan
     rm -f "$py_scan_json" "$py_desc"
 
     # ============================================================
@@ -339,7 +333,7 @@ print('- (criar) Testes de integracao para o fluxo completo')
     local reveal_root
     reveal_root="$(cd "$ticket_dir/../.." && pwd)"
     local script_dir="$reveal_root/lib"
-    local template_file="${3:-$reveal_root/templates/refinamento-tecnico-template.md}"
+    local template_file="${3:-$reveal_root/templates/refinamento-tecnico-template-improved.md}"
 
     # --- Preparar secoes dinâmicas ---
 
@@ -420,26 +414,454 @@ print('\n'.join(texts[:30]))
     fi
 
     # Tasks
-    local tasks_table=""
+    local tasks_list=""
     if [[ -f "$tasks_file" ]]; then
-        tasks_table=$'| # | Projeto | Descricao | Status | Tipo |\n|---|---------|-----------|--------|------|\n'
-        tasks_table+=$(python3 -c "
+        tasks_list=$(python3 -c "
 import json
 with open('$tasks_file') as f:
     data = json.load(f)
 for t in data.get('tarefas', []):
-    proj_short = t['projeto'].split('/')[-1] if '/' in t['projeto'] else t['projeto']
-    print(f\"| {t['id']} | {proj_short} | {t['descricao'][:70]} | {t['status']} | {t['tipo']} |\")
-" 2>/dev/null || true)
+    jira_key = t.get('jiraKey', '')
+    desc = t['descricao'][:80]
+    nivel = t.get('nivel', '')
+    jira_part = f' ({jira_key})' if jira_key else ''
+    print(f\"- **{t['id']}**{jira_part} — {desc} ({nivel}, {t['tipo']})\")
+" 2>/dev/null || echo "*Nenhuma subtarefa definida.*")
     else
-        tasks_table="*Nenhuma subtarefa definida.*"
+        tasks_list="*Nenhuma subtarefa definida.*"
+    fi
+
+    # ============================================================
+    # NOVA SECAO: Observacoes Tecnicas por Task
+    # ============================================================
+    local technical_observations=""
+    if [[ -f "$tasks_file" ]]; then
+        technical_observations=$(python3 -c "
+import json
+with open('$tasks_file') as f:
+    data = json.load(f)
+tasks = data.get('tarefas', [])
+if not tasks:
+    print('*Nenhuma subtarefa definida.*')
+else:
+    print('| Task | Descricao | Observacoes Tecnicas |')
+    print('|------|-----------|----------------------|')
+    for t in tasks:
+        tid = t.get('id', '')
+        desc = t.get('descricao', '')[:70]
+        obs = t.get('observacoes', '')
+        if obs:
+            obs_short = obs[:200].replace('|', '\\|').replace('\n', ' ')
+        else:
+            obs_short = 'Nenhuma observacao tecnica especifica'
+        print(f'| {tid} | {desc[:50]} | {obs_short} |')
+" 2>/dev/null || echo "*Nenhuma observacao tecnica disponivel*")
+    else
+        technical_observations="*Nenhum arquivo de tasks encontrado.*"
+    fi
+
+    # ============================================================
+    # NOVA SECAO: Matriz de Rastreabilidade Negocio-Tecnico
+    # ============================================================
+    local traceability_matrix=""
+    if [[ -f "$questions_file" && -f "$tasks_file" ]]; then
+        # Salvar impact em arquivo temp para seguranca
+        local py_impact_file="/tmp/_refine_impact_$$.json"
+        echo "$impact" > "$py_impact_file"
+
+        traceability_matrix=$(python3 -c "
+import json, re, os
+
+STOPWORDS = {'e','de','da','do','das','dos','em','um','uma','para','por','que','se',
+             'como','mais','mas','tambem','ja','nao','sim','ou','com','sem','sao',
+             'esta','este','estes','estas','isso','aquele','aquela','quem','qual',
+             'quais','quando','onde','como','porque','pois','pode','podem','deve',
+             'devem','tem','temos','tema','seja','faz','fazer','feito'}
+
+def extract_keywords(text):
+    words = re.findall(r'\\b[\\w]+\\b', text.lower())
+    return [w for w in words if w not in STOPWORDS and len(w) > 2]
+
+def load_questions(filepath):
+    questions = []
+    with open(filepath) as f:
+        lines = f.readlines()
+    started = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('|---'):
+            started = True
+            continue
+        if not started:
+            continue
+        if not stripped or stripped.startswith('|--'):
+            continue
+        parts = [p.strip() for p in stripped.split('|') if p.strip()]
+        if len(parts) >= 2:
+            questions.append({
+                'id': parts[0],
+                'text': parts[1] if len(parts) > 1 else '',
+                'categoria': parts[2] if len(parts) > 2 else '',
+            })
+    return questions
+
+def load_impact(filepath):
+    try:
+        with open(filepath) as f:
+            data = json.load(f)
+        return data.get('decisoesTecnicas', [])
+    except:
+        return []
+
+def load_tasks(filepath):
+    with open(filepath) as f:
+        data = json.load(f)
+    return data.get('tarefas', [])
+
+questions = load_questions('$questions_file')
+decisions = load_impact('$py_impact_file')
+tasks = load_tasks('$tasks_file')
+
+rows = []
+for q in questions:
+    q_keywords = extract_keywords(q['text'])
+    if not q_keywords:
+        continue
+
+    # Find related decisions
+    related_decisions = []
+    for d in decisions:
+        d_text = d.get('decisao', '') + ' ' + d.get('area', '')
+        d_keywords = extract_keywords(d_text)
+        if any(kw in d_keywords for kw in q_keywords) or any(kw in q_keywords for kw in d_keywords):
+            related_decisions.append(d.get('decisao', ''))
+
+    # Find related tasks
+    related_tasks = []
+    for t in tasks:
+        t_text = t.get('descricao', '') + ' ' + t.get('observacoes', '') + ' ' + t.get('tipo', '')
+        t_keywords = extract_keywords(t_text)
+        if any(kw in t_keywords for kw in q_keywords) or any(kw in q_keywords for kw in t_keywords):
+            related_tasks.append(f\"{t.get('id', '')}: {t.get('descricao', '')[:40]}\")
+
+    if related_decisions or related_tasks:
+        dec_str = '<br>'.join(related_decisions[:3]) if related_decisions else '-'
+        task_str = '<br>'.join(related_tasks[:3]) if related_tasks else '-'
+        q_text_esc = q['text'][:60].replace('|', '\\|')
+        rows.append(f\"| {q['id']} | {q_text_esc} | {dec_str} | {task_str} |\")
+
+if rows:
+    print('| # | Pergunta | Decisao Tecnica Relacionada | Tasks Relacionadas |')
+    print('|---|----------|----------------------------|--------------------|')
+    for r in rows:
+        print(r)
+else:
+    print('*Nenhum mapeamento automatico encontrado.*')
+    print('')
+    print('**Instrucao para o Tech Lead:** ')
+    print('Preencha manualmente a matriz acima, relacionando cada pergunta de negocio')
+    print('as decisoes tecnicas e tasks que ela impacta.')
+" 2>/dev/null || echo "*Nao foi possivel gerar a matriz de rastreabilidade*")
+        rm -f "$py_impact_file"
+    else
+        traceability_matrix="*Nao foi possivel gerar (perguntas ou tasks nao disponiveis)*"
     fi
 
     # Checklist (padrao, pode ser customizado)
     local checklist=$'- [ ] **Analise:** Entendimento do negocio validado com PO\n- [ ] **Perguntas:** Todas as perguntas respondidas\n- [ ] **Modelos:** DTOs/entidades criados\n- [ ] **Interface:** Interface do servico definida\n- [ ] **Integracao:** Endpoint implementado\n- [ ] **Logica:** Regras de negocio implementadas\n- [ ] **Erros:** Tratamento configurado\n- [ ] **Testes unitarios:** Cobertura minima\n- [ ] **Testes integracao:** Fluxo completo\n- [ ] **Configuracao:** Parametros configurados\n- [ ] **Documentacao:** Atualizada\n- [ ] **Review:** Code review realizado\n- [ ] **QA:** Testes de aceite executados'
 
-    # Scan HTML
+    # --- NOVAS SECOES: Squad / System / Objetivo / Contexto ---
+    local squad=""
+    squad=$(jq_get '.customFields.Squad // .customFields.squad // ""')
+    if [[ -z "$squad" || "$squad" == "null" ]]; then
+        squad="—"
+    fi
+
+    local system_name
+    system_name=$(python3 -c "
+import json
+try:
+    with open('$scan_file') as f:
+        data = json.load(f)
+    data = data if isinstance(data, list) else [data]
+    names = [p.get('name','') for p in data if p.get('name')]
+    print(names[0] if names else '—')
+except:
+    print('—')
+" 2>/dev/null || echo "—")
+
+    # Objetivo funcional — extrai dos campos customizados ou descricao
+    local objetivo_funcional=""
+    objetivo_funcional=$(jq_get '.customFields.Objetivo // .customFields.objetivo // ""')
+    if [[ -z "$objetivo_funcional" || "$objetivo_funcional" == "null" ]]; then
+        objetivo_funcional="${clean_desc:-*Descrever o objetivo funcional da demanda*}"
+    fi
+
+    # Contexto de negocio — extrai do description.md ou summary
+    local py_ticket_text="/tmp/_refine_tickettext_$$.txt"
+    echo "$summary $description" > "$py_ticket_text"
+    local py_context_out="/tmp/_refine_context_$$.txt"
+
+    python3 -c "
+import re, html, os, sys
+
+with open('$py_ticket_text') as f:
+    raw = f.read()
+
+# Limpar HTML e normalizar texto
+text = re.sub(r'<[^>]+>', ' ', raw)
+text = html.unescape(text)
+text = re.sub(r'\\\\n|\\n|&#10;', chr(10), text)
+text = re.sub(r'&nbsp;', ' ', text)
+text = re.sub(r'[ \t]+', ' ', text)
+text = re.sub(r'\n\s+', chr(10), text)
+
+sec_keywords = {
+    'problema': ['problema', 'atualmente', 'hoje', 'cenário atual', 'situação atual'],
+    'impacto': ['impacto', 'afeta', 'consequência', 'consequencia'],
+    'objetivo': ['objetivo', 'esperado', 'proposta', 'finalidade', 'propósito', 'proposito'],
+    'fluxoatual': ['fluxo atual', 'como funciona', 'processo atual', 'funcionamento atual'],
+    'fluxonovo': ['fluxo novo', 'novo fluxo', 'proposto', 'nova funcionalidade', 'novo processo'],
+}
+defaults = {
+    'problema': '*A ser detalhado pelo PO durante o refinamento*',
+    'impacto': '*A ser detalhado pelo PO*',
+    'objetivo': '*A ser detalhado pelo PO*',
+    'fluxoatual': '*Fluxo atual a ser documentado*',
+    'fluxonovo': '*Fluxo novo a ser documentado*',
+}
+current = None
+results = {k: [] for k in defaults}
+for line in text.split(chr(10)):
+    ll = line.lower().strip()
+    matched = False
+    for sec, kws in sec_keywords.items():
+        if any(kw in ll for kw in kws):
+            current = sec
+            matched = True
+            break
+    if matched:
+        continue
+    if re.search(r'^#{1,3}\s|^---|^\*\*|^\- \[', ll):
+        current = None
+        continue
+    if current and line.strip():
+        results[current].append(line.strip())
+
+# Escrever cada valor em uma linha separada (sem separador)
+with open('$py_context_out', 'w') as fout:
+    for k in defaults:
+        val = ' '.join(results[k][:3]).strip()
+        fout.write((val if val else defaults[k]) + chr(10))
+" 2>/dev/null
+
+    # Ler valores do arquivo, linha por linha
+    contexto_problema=$(sed -n '1p' "$py_context_out" 2>/dev/null || echo "*A ser detalhado*")
+    contexto_impacto=$(sed -n '2p' "$py_context_out" 2>/dev/null || echo "*A ser detalhado*")
+    contexto_objetivo=$(sed -n '3p' "$py_context_out" 2>/dev/null || echo "*A ser detalhado*")
+    fluxo_atual=$(sed -n '4p' "$py_context_out" 2>/dev/null || echo "*A ser documentado*")
+    fluxo_novo=$(sed -n '5p' "$py_context_out" 2>/dev/null || echo "*A ser documentado*")
+
+    rm -f "$py_context_out"
+
+    # === CLASSIFICAR COMPONENTES DO SCAN ===
+    local modulos_afetados=""
+    local componentes_backend=""
+    local componentes_frontend=""
+    local componentes_banco=""
+    local config_ambiente=""
+    local dependencias_externas=""
+    local seguranca_permissoes=""
+
+    if [[ -f "$scan_file" ]]; then
+        local py_classify="/tmp/_refine_classify_$$.py"
+        python3 -c "
+import json, re, sys
+
+with open('$scan_file') as f:
+    data = json.load(f)
+data = data if isinstance(data, list) else [data]
+
+with open('$py_ticket_text') as f:
+    ticket_text = f.read().lower()
+
+all_files = []
+modulos = []
+for proj in data:
+    modulos.append(proj.get('name', '?'))
+    all_files.extend(proj.get('files', []))
+
+# --- MODULOS AFETADOS ---
+print('---MODULOS---')
+if modulos:
+    for m in modulos:
+        print(f'- {m}')
+else:
+    print('*Nenhum modulo identificado*')
+
+# --- CLASSIFICAR COMPONENTES BACKEND ---
+print('---BACKEND---')
+controllers = []
+services = []
+repositories = []
+entities = []
+dtos = []
+outros = []
+
+for f in all_files:
+    path = f.get('path', '')
+    ftype = f.get('type', '')
+    name = path.split('/')[-1] if '/' in path else path
+    # Score por relevancia com o ticket
+    relevance = sum(1 for kw in ticket_text.split() if len(kw) > 3 and kw.lower() in path.lower())
+
+    if ftype == 'controller' or 'Controller' in name:
+        controllers.append((relevance, path))
+    elif ftype == 'service' or ('Service' in name and 'Controller' not in name):
+        services.append((relevance, path))
+    elif ftype == 'repository' or 'Repository' in name:
+        repositories.append((relevance, path))
+    elif 'domain/' in path or name.startswith('domain.') or ftype == 'entity':
+        entities.append((relevance, path))
+    elif 'model/' in path or 'DTO' in name or 'Input' in name or 'Output' in name or 'Filter' in name:
+        dtos.append((relevance, path))
+    elif path.endswith('.java') and relevance > 0:
+        outros.append((relevance, path))
+
+def print_group(title, items, max_n=5):
+    items.sort(key=lambda x: -x[0])
+    relevant = [p for s,p in items if s > 0]
+    if not relevant:
+        relevant = [p for s,p in items[:max_n]]
+    if relevant:
+        for p in relevant[:max_n]:
+            print(f'- {p}')
+    else:
+        print(f'*Nenhum {title.lower()} identificado no scan*')
+
+print_group('Controllers', controllers)
+print_group('Services', services)
+print_group('Repositories', repositories)
+print_group('Entities', entities)
+print_group('DTOs', dtos)
+if outros:
+    print_group('Outros arquivos relevantes', outros)
+
+# --- COMPONENTES FRONTEND ---
+print('---FRONTEND---')
+frontend_files = [f for f in all_files if any(k in f.get('path','').lower() for k in ['/pages/', '/components/', '/services/', '.tsx', '.jsx', '.vue', '/views/'])]
+if frontend_files:
+    for f in frontend_files[:8]:
+        print(f'- {f.get(\"path\",\"\")}')
+else:
+    print('*Nenhum componente frontend identificado*')
+
+# --- COMPONENTES BANCO ---
+print('---BANCO---')
+tables_found = set()
+for f in all_files:
+    path = f.get('path', '')
+    if 'changelog' in path.lower() or path.endswith('.sql') or 'liquibase' in path.lower():
+        print(f'- {path}')
+table_patterns = re.findall(r'\b[A-Z]{3,}(?:_[A-Z]{3,})+\b', ticket_text.upper())
+for t in table_patterns[:10]:
+    if t not in tables_found:
+        tables_found.add(t)
+        print(f'- Tabela: {t}')
+if not tables_found and not any('changelog' in f.get('path','').lower() for f in all_files):
+    print('*Tabelas a definir durante a modelagem*')
+
+# --- CONFIGURACOES DE AMBIENTE ---
+print('---CONFIG---')
+configs = []
+if 'feature' in ticket_text or 'toggle' in ticket_text or 'flag' in ticket_text:
+    configs.append('- Feature flag a ser criada para controle da funcionalidade')
+if 'application.yml' in ticket_text or 'property' in ticket_text or 'config' in ticket_text:
+    configs.append('- Propriedades em application.yml / application-{env}.yml')
+if 'timeout' in ticket_text:
+    configs.append('- Timeout a ser configurado')
+if 'retry' in ticket_text:
+    configs.append('- Configuracao de retry')
+if 'casa.*decimal' in ticket_text or 'arredondamento' in ticket_text:
+    configs.append('- Parametro de arredondamento (casas decimais, criterio) em application.yml')
+if not configs:
+    configs.append('*Configuracoes a serem definidas durante a implementacao*')
+print(chr(10).join(configs))
+
+# --- DEPENDENCIAS EXTERNAS ---
+print('---DEPENDENCIAS---')
+deps = []
+if 'api' in ticket_text or 'integracao' in ticket_text or 'feign' in ticket_text or 'rest' in ticket_text:
+    deps.append('- API externa (contrato a ser definido/a confirmar)')
+if 'mapstruct' in ticket_text:
+    deps.append('- MapStruct (ja existe no projeto)')
+if 'lombok' in ticket_text:
+    deps.append('- Lombok (ja existe no projeto)')
+if 'banco' in ticket_text or 'postgres' in ticket_text or 'postgresql' in ticket_text:
+    deps.append('- PostgreSQL (ja configurado no projeto)')
+if not deps:
+    deps.append('*Dependencias a serem mapeadas durante a implementacao*')
+print(chr(10).join(deps))
+
+# --- SEGURANCA E PERMISSOES ---
+print('---SEGURANCA---')
+seg = []
+if 'role' in ticket_text or 'permissao' in ticket_text or 'acesso' in ticket_text or 'autoriza' in ticket_text:
+    seg.append('- Roles e permissoes a serem definidas')
+if 'admin' in ticket_text:
+    seg.append('- Acesso administrativo requerido')
+if 'dado.*pessoal' in ticket_text or 'lgpd' in ticket_text:
+    seg.append('- Dados pessoais: verificar necessidade de criptografia')
+seg.append('*Permissoes a serem mapeadas durante a implementacao (consultar squad de seguranca)*')
+print(chr(10).join(seg))
+" > "$py_classify" 2>/dev/null
+
+        # Ler resultados
+        local current_section=""
+        while IFS= read -r line; do
+            case "$line" in
+                "---MODULOS---") current_section="modulos" ;;
+                "---BACKEND---") current_section="backend" ;;
+                "---FRONTEND---") current_section="frontend" ;;
+                "---BANCO---") current_section="banco" ;;
+                "---CONFIG---") current_section="config" ;;
+                "---DEPENDENCIAS---") current_section="dependencias" ;;
+                "---SEGURANCA---") current_section="seguranca" ;;
+                *)
+                    if [[ "$current_section" == "modulos" ]]; then
+                        modulos_afetados+="$line"$'\n'
+                    elif [[ "$current_section" == "backend" ]]; then
+                        componentes_backend+="$line"$'\n'
+                    elif [[ "$current_section" == "frontend" ]]; then
+                        componentes_frontend+="$line"$'\n'
+                    elif [[ "$current_section" == "banco" ]]; then
+                        componentes_banco+="$line"$'\n'
+                    elif [[ "$current_section" == "config" ]]; then
+                        config_ambiente+="$line"$'\n'
+                    elif [[ "$current_section" == "dependencias" ]]; then
+                        dependencias_externas+="$line"$'\n'
+                    elif [[ "$current_section" == "seguranca" ]]; then
+                        seguranca_permissoes+="$line"$'\n'
+                    fi
+                    ;;
+            esac
+        done < "$py_classify"
+        rm -f "$py_classify"
+    fi
+
+    # Defaults para valores vazios
+    modulos_afetados="${modulos_afetados:-*Nenhum modulo identificado*}"
+    componentes_backend="${componentes_backend:-*Nenhum componente backend identificado*}"
+    componentes_frontend="${componentes_frontend:-}"
+    componentes_banco="${componentes_banco:-*Tabelas a definir durante a modelagem*}"
+    config_ambiente="${config_ambiente:-*Configuracoes a serem definidas durante a implementacao*}"
+    dependencias_externas="${dependencias_externas:-*Dependencias a serem mapeadas durante a implementacao*}"
+    seguranca_permissoes="${seguranca_permissoes:-*Permissoes a serem mapeadas durante a implementacao*}"
+
+    # Scan HTML (ja existe — mantido)
     local scan_html_content="${scan_html:-*Nenhum projeto escaneado.*}"
+
+    rm -f "$py_ticket_text"
 
     # --- Renderizar template ---
     python3 "$script_dir/render_template.py" "$template_file" \
@@ -453,15 +875,32 @@ for t in data.get('tarefas', []):
         COMPONENTS="${components:--}" \
         EPIC="$epic" \
         CUSTOM_FIELDS="$custom_fields" \
+        SQUAD="$squad" \
+        SYSTEM="$system_name" \
         SCAN_HTML="$scan_html_content" \
         CHANGE_TYPE="$change_type" \
         DESCRIPTION="$clean_desc" \
+        OBJETIVO_FUNCIONAL="$objetivo_funcional" \
+        CONTEXTO_PROBLEMA="$contexto_problema" \
+        CONTEXTO_IMPACTO="$contexto_impacto" \
+        CONTEXTO_OBJETIVO="$contexto_objetivo" \
+        FLUXO_ATUAL="$fluxo_atual" \
+        FLUXO_NOVO="$fluxo_novo" \
+        MODULOS_AFETADOS="$modulos_afetados" \
+        COMPONENTES_BACKEND="$componentes_backend" \
+        COMPONENTES_FRONTEND="$componentes_frontend" \
+        COMPONENTES_BANCO="$componentes_banco" \
         FLOW_DIAGRAM="$flow_diagram" \
         SUGGESTED_FILES="$suggested_files" \
         DECISIONS_TABLE="$decisions_table" \
         RISKS_TABLE="$risks_table" \
         QUESTIONS_TABLE="$questions_table" \
-        TASKS_TABLE="$tasks_table" \
+        CONFIG_AMBIENTE="$config_ambiente" \
+        DEPENDENCIAS_EXTERNAS="$dependencias_externas" \
+        SEGURANCA_PERMISSOES="$seguranca_permissoes" \
+        TASKS_LIST="$tasks_list" \
+        TECHNICAL_OBSERVATIONS="$technical_observations" \
+        TRACEABILITY_MATRIX="$traceability_matrix" \
         CHECKLIST="$checklist" \
         DATE="$(date '+%Y-%m-%d %H:%M:%S')" \
         > "$output_file"

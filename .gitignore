@@ -38,3 +38,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Gerado pelo agente IA, nao faz parte do projeto
+.codebase.md
+
+# Dados temporarios de execucao do pipeline
+jira-data.json
+jira-summary.md
+attachments/
+
+# Backups
+*.bak

@@ -8,42 +8,56 @@
     {
       "id": "0001",
       "projeto": "meu-projeto-backend",
-      "descricao": "Criar interface de servico com metodo de exemplo",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "descricao": "Criar entidade + migration + repository de Exemplo",
+      "nivel": "junior",
       "tipo": "criar-classe",
       "dependeDe": [],
       "bloqueadoPor": null,
-      "status": "pendente"
+      "status": "pendente",
+      "observacoes": "PACOTE ALVO:\n  com.exemplo.projeto.exemplo\n\nMigration:\n  1. Sequence: SEQ_EXEMPLO\n  2. Tabela: EXEMPLO (ID BIGINT PK, NOME VARCHAR(255), ATIVO BOOLEAN)\n\nEntity:\n  - @Entity @Table(name = \"EXEMPLO\")\n  - @SequenceGenerator(name = \"SEQ_EXEMPLO\")\n\nRepository:\n  - extends JpaRepository<Exemplo, Long>"
     },
     {
       "id": "0002",
       "projeto": "meu-projeto-backend",
-      "descricao": "Implementar classe concreta do servico",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "tipo": "criar-classe",
+      "descricao": "Implementar service + regras de negocio de Exemplo",
+      "nivel": "pleno",
+      "tipo": "implementar",
       "dependeDe": ["0001"],
       "bloqueadoPor": null,
-      "status": "pendente"
+      "status": "pendente",
+      "observacoes": "PACOTE ALVO:\n  com.exemplo.projeto.exemplo.service\n\nCriar:\n  1. ExemploService com @Service @Slf4j @Transactional\n  2. Actions: CreateAction, UpdateAction, GetAction, ValidatorAction\n  3. Testes unitarios com Mockito"
     },
     {
       "id": "0003",
       "projeto": "meu-projeto-backend",
-      "descricao": "Criar endpoint REST para a nova funcionalidade",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
+      "descricao": "Criar controller REST de Exemplo",
+      "nivel": "junior",
       "tipo": "adicionar-endpoint",
       "dependeDe": ["0002"],
       "bloqueadoPor": null,
-      "status": "pendente"
+      "status": "pendente",
+      "observacoes": "PACOTE ALVO:\n  com.exemplo.projeto.exemplo.controller\n\nEndpoints:\n  GET    /api/exemplo      - Listar\n  POST   /api/exemplo      - Criar\n  PUT    /api/exemplo/{id} - Alterar\n  DELETE /api/exemplo/{id} - Excluir\n\nController:\n  - @RestController @RequestMapping(\"/api/exemplo\")"
     },
     {
       "id": "0004",
       "projeto": "meu-projeto-backend",
-      "descricao": "Escrever testes unitarios para servico e endpoint",
       "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "tipo": "testes-unitarios",
-      "dependeDe": ["0001", "0003"],
+      "descricao": "Preparar artefatos de demonstracao de Exemplo",
+      "nivel": "junior",
+      "tipo": "demo",
+      "dependeDe": ["0001"],
       "bloqueadoPor": null,
-      "status": "pendente"
+      "status": "pendente",
+      "artefatos": [
+        "roteiro-demo.md",
+        "postman-collection.json",
+        "postman-environment.json",
+        "queries.sql"
+      ],
+      "observacoes": "Artefatos:\n  - roteiro-demo.md\n  - postman-collection.json\n  - queries.sql"
     }
   ]
 }

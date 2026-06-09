@@ -6,18 +6,8 @@ import os
 import sys
 from datetime import datetime, timezone
 
-
-def load_json(path, default=None):
-    if not os.path.exists(path):
-        return default
-    with open(path) as f:
-        content = f.read().strip()
-        if not content:
-            return default
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            return default
+sys.path.insert(0, os.path.dirname(__file__))
+from utils import load_json
 
 
 def main():

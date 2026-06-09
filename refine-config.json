@@ -22,19 +22,20 @@
       "path": "../projetos/backend-java",
       "language": "java",
       "buildTool": "gradle",
-      "description": "Projeto Java backend principal"
+      "description": "Projeto Java backend principal",
+      "apiBaseUrl": "https://api.exemplo.com"
     },
     {
       "name": "frontend-web",
       "path": "../projetos/frontend-web",
       "language": "javascript",
       "buildTool": "npm",
-      "description": "Aplicacao frontend React"
+      "description": "Aplicacao frontend React",
+      "apiBaseUrl": ""
     }
   ],
 
   "templates": {
-    "questions": "./templates/perguntas-negocio-template.md",
     "refinement": "./templates/refinamento-tecnico-template.md"
   },
 

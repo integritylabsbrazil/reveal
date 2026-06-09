@@ -149,6 +149,63 @@ class TestJavaTasks(unittest.TestCase):
         self.assertIn('artefatos', demo[0])
 
 
+class TestJavaTasksGranularity(unittest.TestCase):
+    def setUp(self):
+        self.config = {'name': 'meu-projeto', 'path': '../projetos/meu-projeto',
+                       'language': 'java', 'buildTool': 'maven'}
+        self.scan = load('impact-report.json')
+        self.jira = load('jira-data.json')
+        self.kw = get_change_keywords(self.jira)
+
+    def test_grossa_3_tasks(self):
+        tasks = java_tasks(self.config, self.scan, self.jira, self.kw, 'TEST-1', 'grossa')
+        # grossa com calculo = CRUD + logica + demo
+        self.assertEqual(len(tasks), 3)
+
+    def test_media_7_tasks(self):
+        tasks = java_tasks(self.config, self.scan, self.jira, self.kw, 'TEST-1', 'media')
+        self.assertEqual(len(tasks), 7)
+
+    def test_fina_11_tasks(self):
+        tasks = java_tasks(self.config, self.scan, self.jira, self.kw, 'TEST-1', 'fina')
+        self.assertEqual(len(tasks), 11)
+
+    def test_all_valid_deps(self):
+        for g in ('grossa', 'media', 'fina'):
+            tasks = java_tasks(self.config, self.scan, self.jira, self.kw, 'TEST-1', g)
+            ids = {t['id'] for t in tasks}
+            for t in tasks:
+                for dep in t.get('dependeDe', []):
+                    self.assertIn(dep, ids,
+                        f"[{g}] Task {t['id']} depende de {dep} inexistente")
+
+    def test_no_circular_any(self):
+        for g in ('grossa', 'media', 'fina'):
+            tasks = java_tasks(self.config, self.scan, self.jira, self.kw, 'TEST-1', g)
+            ids = {t['id'] for t in tasks}
+            deps = {t['id']: t.get('dependeDe', []) for t in tasks}
+
+            def has_cycle(node, visited, stack):
+                visited.add(node)
+                stack.add(node)
+                for dep in deps.get(node, []):
+                    if dep not in ids:
+                        continue
+                    if dep in stack:
+                        return True
+                    if dep not in visited:
+                        if has_cycle(dep, visited, stack):
+                            return True
+                stack.discard(node)
+                return False
+
+            visited = set()
+            for t_id in ids:
+                if t_id not in visited:
+                    self.assertFalse(has_cycle(t_id, visited, set()),
+                        f"[{g}] Ciclo na task {t_id}")
+
+
 class TestLanguageHandlers(unittest.TestCase):
     def test_java(self):
         self.assertIn('java', LANGUAGE_HANDLERS)

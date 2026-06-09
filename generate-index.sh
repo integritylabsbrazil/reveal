@@ -43,7 +43,7 @@ INDEX_FILE="$TICKETS_DIR/INDEX.md"
         fi
         if [[ -z "$summary" && -f "$json_file" ]]; then
             if command -v jq &> /dev/null; then
-                summary=$(jq -r '.summary // ""' "$json_file")
+                summary=$(jq -r '.basic.summary // ""' "$json_file")
             else
                 summary=$(grep -m1 '"summary"' "$json_file" 2>/dev/null | sed 's/.*: "//;s/".*//' || true)
             fi
@@ -78,13 +78,13 @@ INDEX_FILE="$TICKETS_DIR/INDEX.md"
         if [[ "$total" -gt 0 ]]; then
             tarefas_str="$total tarefas"
             if [[ "$resolvidas" -eq "$total" ]]; then
-                progresso="$concluidas/$total ✅"
+                progresso="$concluidas/$total"
             elif [[ "$em_andamento" -gt 0 ]]; then
-                progresso="$concluidas/$total 🔄"
+                progresso="$concluidas/$total"
             elif [[ "$falhou" -gt 0 ]]; then
-                progresso="$concluidas/$total 💥"
+                progresso="$concluidas/$total !"
             else
-                progresso="$concluidas/$total ⏳"
+                progresso="$concluidas/$total"
             fi
         else
             tarefas_str="(n/a)"

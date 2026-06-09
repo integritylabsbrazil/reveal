@@ -139,16 +139,32 @@ c) Verificar status — Mostrar progresso do ticket e subtarefas
 Que nível de granularidade você quer para as tasks?
 
 a) Grossa (3 tasks) — recomendado para tickets simples
-   Ex: CRUD, Lógica, Demo
+   Ex: CRUD completo, Lógica de processamento
 b) Média (6-7 tasks) — cada camada de desenvolvimento
-   Ex: Entity+Repo, DTOs, Service, Controller, Testes, Demo
+   Ex: Entity+Repo, DTOs, Service, Controller, Testes
 c) Fina (10-11 tasks) — cada classe individualmente
-   Ex: Migration, Entity, DTOs, Repo, Mapper, Service, Controller, Testes, Demo
+   Ex: Migration, Entity, DTOs, Repo, Mapper, Service, Controller, Testes
 ```
 
-### Passo 6: Mostre preview e confirme
+### Passo 6: Pergunte sobre artefatos de demonstração
 
-Após escolher a granularidade, gere as tasks com `--preview`:
+Antes de gerar as tasks, pergunte se deseja incluir task de demonstração:
+
+```
+Deseja incluir artefatos de demonstração (roteiro-demo.md, Postman, queries SQL)?
+
+a) Sim
+b) Não (padrão)
+```
+
+**Regras (aplicadas na geração das tasks):**
+- Se `b` (padrão): `generate-tasks.sh` gerará tasks **sem** task do tipo `demo`
+- Se `a`: `generate-tasks.sh` incluirá uma task `demo` no final da lista
+- Tasks `demo` nunca são geradas por padrão — apenas quando o usuário disser "sim"
+
+### Passo 7: Mostre preview e confirme
+
+Após definir granularidade e decisão sobre demo, gere as tasks com `--preview`:
 
 ```bash
 ./lib/generate-tasks.sh tickets/TICKET_ID --granularity media --preview
@@ -167,7 +183,7 @@ Confirma? (s/n)
 ```
 
 Se `n`, pergunte novamente a granularidade ou permita ajustes manuais.
-Se `s`, prossiga com a geração completa.
+Se `s`, prossiga.
 
 ---
 
@@ -255,10 +271,18 @@ Para cada projeto identificado como afetado:
 > O agente não precisa mais criá-lo manualmente.
 
 1. **`description.md`**: Conteúdo do Jira enriquecido com análise de negócio
-2. **`roteiro-demo.md`**: Script de apresentação para o negócio
-3. **`demo-artifacts/`**: Artefatos da demonstração (Postman, SQL)
+2. **`roteiro-demo.md`** *(opcional)*: Script de apresentação para o negócio
+3. **`demo-artifacts/`** *(opcional)*: Artefatos da demonstração (Postman, SQL)
 
-### 5.4. Gere as subtarefas → `status-tasks.json`
+> **Artefatos de demonstração NÃO são gerados por padrão.** O agente DEVE
+> perguntar ao usuário se deseja criá-los (veja seção 4, Passo 6).
+> Só gere `roteiro-demo.md` e `demo-artifacts/` se o usuário disser "sim".
+
+### 5.4. Gere as tasks internas → `status-tasks.json`
+
+> **Nota:** As tasks em `status-tasks.json` são para tracking interno do agente.
+> Não são criadas como subtasks no Jira. A especificação completa (incluindo a
+> tabela de tasks) vai na descrição do ticket principal via `jira-update-description.sh`.
 
 Cada subtarefa deve ser:
 - **Vertical**: agrupa artefatos relacionados (ex: entidade + DTOs + repository em uma task)
@@ -268,7 +292,7 @@ Cada subtarefa deve ser:
 - **Nível de senioridade**: `nivel` (junior/pleno/senior) para orientar a alocação
 - **Baseada na documentação do projeto**: referências a classes/padrões reais
 
-Exemplo de `status-tasks.json`:
+Exemplo de `status-tasks.json` (tracking interno do agente):
 
 ```json
 {
@@ -299,19 +323,6 @@ Exemplo de `status-tasks.json`:
       "dependeDe": ["0001"],
       "bloqueadoPor": null,
       "status": "pendente"
-    },
-    {
-      "id": "0003",
-      "projeto": "meu-projeto-backend",
-      "descricao": "Preparar artefatos de demonstracao de Funcionalidade",
-      "caminhoProjeto": "../projetos/meu-projeto-backend",
-      "nivel": "junior",
-      "tipo": "demo",
-      "dependeDe": ["0001"],
-      "bloqueadoPor": null,
-      "status": "pendente",
-      "esforcoEstimado": {"horas": 4, "descricao": "medio (~4h)"},
-      "artefatos": ["roteiro-demo.md", "postman-collection.json", "postman-environment.json", "queries.sql"]
     }
   ]
 }
@@ -379,7 +390,23 @@ git diff --name-only HEAD
 
 Regra prática: uma task do tipo `criar-classe` só deve CRIAR arquivos novos. Uma task `alterar-classe` só deve MODIFICAR arquivos existentes.
 
-### 6.3. Registro no JSON após conclusão
+### 6.3. Atualizar descricao no Jira (opcional, mas recomendado)
+
+Após cada task concluída, pergunte ao usuário se deseja sincronizar a descricao do ticket no Jira:
+
+```
+Task 0001 concluida. Atualizar descricao no Jira? (s/N)
+```
+
+Se sim:
+
+```bash
+./lib/jira-update-description.sh TICKET_ID --update-status
+```
+
+Isso re-gera o ADF da descrição com os status atualizados e faz PUT no ticket.
+
+### 6.4. Registro no JSON após conclusão
 
 ```json
 {
@@ -394,7 +421,7 @@ Regra prática: uma task do tipo `criar-classe` só deve CRIAR arquivos novos. U
 }
 ```
 
-### 6.4. Registro no JSON após falha
+### 6.5. Registro no JSON após falha
 
 ```json
 {
@@ -482,6 +509,10 @@ Tasks podem ser executadas em qualquer ordem, desde que as dependências estejam
 
 ### 9.5. Tipo: `demo`
 
+**Importante:** Tasks do tipo `demo` só devem ser criadas se o usuário
+confirmar explicitamente (veja seção 4, Passo 6). Não gerar tasks `demo`
+por padrão — a pergunta deve ser feita **antes** de gerar as tasks.
+
 ```
 1. Gere o roteiro-demo.md com cenários de apresentação para o negócio
 2. Crie a collection do Postman com requests organizados por cenário
@@ -499,83 +530,19 @@ Antes de definir o body de qualquer request na collection, você DEVE:
 
 ---
 
-### 9.6. Formato das `observacoes` (markdown livre → ADF no Jira)
+### 9.6. Formato das observacoes
 
-O campo `observacoes` de cada task em `status-tasks.json` é escrito em **markdown puro**.
-O `build_adf.py` converte para ADF (Atlassian Document Format) automaticamente,
-reconhecendo os seguintes elementos:
+As observacoes de cada task em status-tasks.json devem seguir o formato
+de **documentação natural**, sem backticks, sem blocos de codigo, sem steps
+numerados e sem tabelas formatadas.
 
-| Markdown | Renderização no Jira |
-|----------|---------------------|
-| `# Titulo` | Heading (seção) |
-| `## Subtitulo` | Sub-heading |
-| ` ```java ... ``` ` | Code block com syntax highlight (```java, ```xml, ```yaml) |
-| `\| cel \| cel \|` (2+ linhas) | Tabela |
-| texto livre | Parágrafo |
+Carregue a skill **doc-natural** para instruções detalhadas e exemplos antes/depois.
+O agente DEVE carregar esta skill sempre que for escrever observacoes, description.md
+ou refinamento-tecnico.md.
 
-**Regras obrigatórias:**
-
-1. Use `#` para seções, não texto maiúsculo (`# Objetivo`, `# Arquivos Afetados`, etc.)
-2. Code blocks DEVEM ter o language identifier: ` ```java`, ` ```xml`, ` ```yaml`, ` ```json`
-3. Tabelas: primeira linha é o header, segunda linha separadora `|---|---|`, demais linhas dados
-4. Classe **nova**: escrever `NOVA: NomeSugeridoCamelCase.java` na descrição
-5. Classe **alterada**: mencionar o path real e o que muda
-6. **JSON de resposta:** incluir `# Exemplo de Resposta` com ` ```json` contendo request/response real extraído do DTO do projeto — não inventar campos
-
-**Exemplo de `observacoes`:**
-
-```markdown
-# Objetivo
-Possibilitar busca de conta contabil por numeracao sem pontuacao.
-
-# Arquivos Afetados
-| Arquivo | Acao | Pacote |
-|---------|------|--------|
-| ContaContabilRepositoryCustomImpl.java | ALTERAR | com.maps.dataa.tesouraria.contaContabil.repository |
-| NormalizacaoUtils.java | NOVA | com.maps.dataa.tesouraria.common |
-
-# Implementacao
-1. Criar `NormalizacaoUtils` com metodo estatico
-   ```java
-   public static String normalizarFiltro(String filtro) {
-       return filtro.replaceAll("[-.\\/]", "");
-   }
-   ```
-2. Alterar query JPQL para usar REPLACE
-
-# Codigo de Exemplo
-```java
-// FavorecidoGetAction.java:53 — normalizacao existente
-filtro.replaceAll("-","").replaceAll("\\.","").replaceAll("/","")
-```
-
-# Exemplo de Resposta
-
-GET /api/tesouraria/conta-contabil/autocomplete?filtro=101
-
-```json
-[
-  {
-    "id": 1,
-    "numeracao": "1.01.01.00.00.00.00.00",
-    "nome": "ATIVO CIRCULANTE - CAIXA",
-    "idPlanificacao": 5,
-    "planificacaoAtiva": true
-  }
-]
-```
-
-# Criterios de Aceitacao
-| Cenario | Resultado Esperado |
-|---------|-------------------|
-| Busca "101" sem pontuacao | Encontra "1.01.00.00.00.00.00" |
-| Busca "1.01" com pontuacao | Encontra mesma conta (compatibilidade) |
-```
-
-> O agente DEVE extrair os exemplos de código do `projects-context/<projeto>.md`
-> e do próprio código fonte, garantindo que sejam REAIS e ESPECÍFICOS da task,
-> não skeletons genéricos. Classes de referência que não têm relação com a task
-> NÃO devem ser incluídas.
+A ferramenta humanize_text.py aplica sanitizacao automatica (remove backticks
+e blocos de codigo) antes de enviar ao Jira, mas o ideal e ja escrever no
+formato correto para evitar depender de pos-processamento.
 
 ---
 
@@ -725,15 +692,14 @@ Agente:
 ├── refine-ticket.sh PROJ-123 --refine   ← Pipeline: fetch + scan + perguntas + refinamento
 ├── Lê jira-data.json e projects-context/<projeto>.md para entender estrutura
 ├── Pergunta granularidade → usuário escolhe "media"
-├── Mostra preview: ./generate-tasks.sh PROJ-123 --granularity media --preview
-├── Confirma? → sim
-├── Re-gera tasks com granularidade escolhida
-├── Gera description.md, roteiro-demo.md
-├── Cria demo-artifacts/ (postman-collection, environment, queries)
+├── Pergunta se deseja artefatos de demonstração → usuário escolhe "não"
+├── Gera tasks sem demo: ./lib/generate-tasks.sh PROJ-123 --granularity media
+├── Mostra preview e confirma
+├── Gera description.md
 ├── Implementation-plan.md enriquecido com contexto do projeto
 ├── Status-tasks.json gerado automaticamente
 ├── Contexto-implementacao.md gerado e validado
-└── "Documentacao criada. 7 tasks em status-tasks.json."
+└── "Documentacao criada. 6 tasks em status-tasks.json."
 
 Usuário: "adicione a task 'Criar endpoints de exportacao' no PROJ-123"
 Agente:
@@ -747,15 +713,18 @@ Agente:
 
 Usuário: "implemente a task 0001 do PROJ-123"
 Agente:
-├── Lê status-tasks.json: 0001 pendente
-├── Lê implementation-plan.md para guia por task com blueprint
-├── Marca 0001 como "em_andamento"
+├── Le status-tasks.json: 0001 pendente
+├── Carrega skill doc-natural para formato das observacoes
+├── Marca 0001 como em_andamento
 ├── Instala pre-commit hook
-├── Implementa exatamente conforme blueprint (entity, DTOs, repository...)
+├── Implementa conforme contexto do projeto (entities, servicos, etc.)
 ├── Compila e testa
-├── Squash commits → git commit -m "PROJ-123-0001: Criar entidade + migration"
+├── Squash commits com git commit -m "PROJ-123-0001: descricao"
 ├── Marca 0001 como concluido
 ├── Atualiza contexto-implementacao.md
+├── "Atualizar descricao no Jira?"
+│   ├── sim → jira-update-description.sh PROJ-123 --update-status
+│   └── nao → continua
 └── "Task 0001 concluida. Ir para a 0002?"
 ```
 
@@ -856,12 +825,12 @@ TECH LEAD (documentacao completa em 1 comando):
 | `impact-report.json` | Estrutura dos projetos de código | Agente IA |
 | `perguntas-negocio.md` | Tabela de perguntas para o negócio | PO / Analista |
 | `refinamento-tecnico.md` | Documento completo de refinamento com seções de observações técnicas por task e matriz de rastreabilidade | Time dev |
-| `status-tasks.json` | Subtarefas atômicas com observações técnicas, esforço estimado e enriquecimento via `projects-context/` | Agente IA / Dev |
+| `status-tasks.json` | Tasks internas (tracking do agente) com observações técnicas, esforço estimado e enriquecimento via `projects-context/` | Agente IA / Dev |
 | `implementation-plan.md` | Plano de implementação, arquitetura, cronograma | Time dev |
 | `contexto-implementacao.md` | Resumo visual com tabela de subtarefas, gráfico Mermaid de dependências e esforço estimado | Dev |
 | `description.md` | Conteúdo do Jira enriquecido com análise de negócio | Agente IA |
-| `roteiro-demo.md` | Script de apresentação para o negócio | PO / Dev |
-| `demo-artifacts/` | Postman collection, environment, queries SQL | Dev |
+| `roteiro-demo.md` | *(opcional)* Script de apresentação para o negócio | PO / Dev |
+| `demo-artifacts/` | *(opcional)* Postman collection, environment, queries SQL | Dev |
 
 ### 15.6. Exemplo de Perguntas Geradas
 
@@ -933,16 +902,32 @@ Caso queira alterar manualmente, pergunte ao usuário:
 Granularidade auto-detectada: media (6-7 tasks). Deseja alterar?
 
 a) Grossa (3 tasks) — recomendado para tickets simples
-   Ex: CRUD completo, Lógica de processamento, Demo
+   Ex: CRUD completo, Lógica de processamento
 
 b) Média (6-7 tasks) — cada camada de desenvolvimento
-   Ex: Migration+Entity, DTOs, Service, Controller, Testes, Demo
+   Ex: Migration+Entity, DTOs, Service, Controller, Testes
 
 c) Fina (10-11 tasks) — cada classe individualmente
-   Ex: Migration, Entity, DTOs, Repository, Mapper, Service, Controller, Testes, Demo
+   Ex: Migration, Entity, DTOs, Repository, Mapper, Service, Controller, Testes
 ```
 
-### Passo 3: Preview Interativo
+### Passo 3: Pergunte sobre artefatos de demonstração
+
+Antes de gerar as tasks, pergunte se deseja incluir task de demonstração:
+
+```
+Deseja incluir artefatos de demonstração (roteiro-demo.md, Postman, queries SQL)?
+
+a) Sim
+b) Não (padrão)
+```
+
+**Regras (aplicadas na geração das tasks):**
+- Se `b` (padrão): `generate-tasks.sh` gerará tasks **sem** task do tipo `demo`
+- Se `a`: `generate-tasks.sh` incluirá uma task `demo` no final da lista
+- Tasks `demo` nunca são geradas por padrão — apenas quando o usuário disser "sim"
+
+### Passo 4: Preview Interativo
 
 Use `--interactive` para preview com ajuste de tasks:
 
@@ -978,9 +963,7 @@ Confirma? (s/n)
 Se `n`, pergunte novamente a granularidade ou permita ajustes manuais.
 Se `s`, prossiga.
 
-### Passo 4: Geração completa
-
-Se a granularidade escolhida for diferente de `grossa`:
+### Passo 5: Geração completa
 
 ```bash
 # Re-gerar tasks com a granularidade escolhida
@@ -995,7 +978,7 @@ python3 lib/generate_implementation_plan.py tickets/PROJ-123
 ./generate-index.sh
 ```
 
-### Passo 5: Documentos gerados
+### Passo 6: Documentos gerados
 
 Informe ao usuário os documentos criados e onde encontrá-los.
 
@@ -1073,60 +1056,385 @@ Consistencia validada.
 
 ---
 
-## 18. Criar Subtasks no Jira
+## 18. Atualizar Descrição no Jira
 
-Após gerar a documentação de um ticket, o agente DEVE perguntar ao usuário se deseja criar as subtasks no Jira.
+Após gerar a documentação de um ticket, o agente DEVE perguntar ao usuário se deseja atualizar a descrição do ticket principal no Jira com a especificação completa + breakdown de tasks.
+
+> **Nota:** Não são criadas subtasks no Jira. O breakdown de tasks fica na descrição do ticket principal, em formato de tabela com status.
 
 ### Fluxo
 
 ```
-Voce: "Documentacao gerada. Deseja criar as subtarefas no Jira agora?"
+Voce: "Documentacao gerada. Deseja atualizar a descricao do ticket no Jira agora?"
 Usuario: sim
-Agente: bash lib/jira-create-tasks.sh TICKET_ID
+Agente: bash lib/jira-update-description.sh TICKET_ID
 ```
 
-O script `lib/jira-create-tasks.sh` faz todo o trabalho interativo:
-1. Lê `status-tasks.json` e identifica tasks sem `jiraKey`
-2. Para cada task, mostra preview (descrição, nível, esforço, observações)
-3. Pergunta: "Criar subtask no Jira? (s/N/q-sair)"
-4. Se `s`: cria via API REST e salva `jiraKey` no JSON
-5. Se `N`: pula a task
-6. Se `q`: interrompe o processo
+O script `lib/jira-update-description.sh` faz todo o trabalho:
+1. Lê `description.md`, `status-tasks.json` e `refinamento-tecnico.md`
+2. Monta descrição markdown completa: objetivo + tasks + observações + riscos
+3. Converte para ADF (Atlassian Document Format)
+4. Faz PUT na descrição do ticket via REST API
 
-### Modo automático
+### Preview sem enviar
 
 ```bash
-bash lib/jira-create-tasks.sh TICKET_ID --auto
+bash lib/jira-update-description.sh TICKET_ID --dry-run
 ```
 
-Cria todas as subtasks sem confirmar individualmente.
+Mostra o markdown completo e métricas (tamanho, tasks) sem chamar a API.
+
+### Atualizar status após task concluída
+
+```bash
+bash lib/jira-update-description.sh TICKET_ID --update-status
+```
+
+Re-gera a descrição com os status atualizados das tasks.
 
 ### Integração no Pipeline
 
 O `gerar-documentacao.sh` já pergunta automaticamente ao final:
 ```
-Deseja criar subtasks no Jira agora? (s/N)
+Deseja atualizar a descricao do ticket TICKET_ID no Jira agora? (s/N)
 ```
 
-### Formato da Subtask no Jira
+### Conteúdo da Descrição no Jira
 
-Cada task vira uma subtask com:
-- **Summary:** `TICKET_ID-NNNN: descrição da task`
-- **Parent:** ticket pai (ex: SPR-3413)
-- **Description:** contém projeto, nível, tipo, esforço e observações técnicas
-- **Issue Type:** Sub-task
-
-Após a criação, o campo `jiraKey` é adicionado à task no `status-tasks.json`:
-```json
-{
-  "id": "0001",
-  "jiraKey": "SPR-3472",
-  "descricao": "..."
-}
-```
+A descrição atualizada contém:
+- **Objetivo funcional** (do `description.md`)
+- **Critérios de aceitação**
+- **Tabela de tasks** com ID e descrição
+- **Observações técnicas por task** (da `observacoes` em `status-tasks.json`)
+- **Riscos técnicos** e **decisões pendentes** (do `refinamento-tecnico.md`)
+- **Matriz de rastreabilidade**
 
 ### Verificação
 
 ```bash
-# Listar tasks com jiraKey
-jq '.tarefas[] | {id, jiraKey, status}' tickets/TICKET_ID/status-tasks.json
+# Verificar ultima atualizacao
+jq -r '.ultimaAtualizacao' tickets/TICKET_ID/status-tasks.json
+```
+
+---
+
+## 19. Code Review de Pull Requests
+
+Quando um dev abrir um PR no Bitbucket e você quiser revisar:
+
+```
+Você: "review PR 123"
+```
+
+### Fluxo
+
+1. **Agente descobre o projeto** do ticket ativo (lê `caminhoProjeto` em `status-tasks.json`)
+2. **Busca arquivos e diff** via `lib/code-review.sh`:
+   ```bash
+   bash lib/code-review.sh <projeto> <PR> files   # lista arquivos alterados
+   bash lib/code-review.sh <projeto> <PR> diff    # diff completo
+   ```
+   Exemplo:
+   ```bash
+   bash lib/code-review.sh dataa-tesouraria 123 files
+   bash lib/code-review.sh dataa-tesouraria 123 diff
+   ```
+3. **Agente analisa** o diff contra as convenções do projeto em `projects-context/<projeto>.md`:
+   - Nomenclatura de classes/pacotes segue o padrão existente?
+   - Anotações usadas (`@RequiredArgsConstructor`, `@Valid`, `@Resource`) seguem o padrão?
+   - Endpoints seguem o padrão REST do projeto?
+   - Pacotes corretos (cada classe no lugar certo)?
+   - Tratamento de erros (exceptions, `ResponseEntity`)?
+   - Testes de integração inclusos?
+
+4. **Varredura cruzada com `diffscan`** (obrigatório):
+
+   Após identificar um padrão com problema no passo 3, o agente DEVE escanear **todos os arquivos do diff** em busca do mesmo padrão antes de apresentar o relatório:
+
+   ```bash
+   bash lib/code-review.sh <projeto> <PR> diffscan "<regex>"
+   ```
+
+   Exemplo:
+   ```bash
+   bash lib/code-review.sh dataa-tesouraria 860 diffscan "replace\(n\.textoNumeracao"
+   ```
+
+   Isso retorna JSON com todos os arquivos e linhas onde o padrão aparece, permitindo que o agente veja de uma vez se o problema se repete em múltiplos arquivos.
+
+   **Regras:**
+   - Se o mesmo problema aparecer em N arquivos, incluir **todos** no relatório
+   - Só postar depois de ter analisado todos os arquivos afetados
+
+5. **Agente apresenta relatório consolidado** com sugestões por linha:
+
+   ```
+   ## Review do PR #123 — SPR-3420
+   Projeto: dataa-tesouraria
+
+   📁 ParametroRecursoGarantidorController.java:15
+   ⚠️ Usar @RequiredArgsConstructor em vez de @Resource
+   Padrão do projeto: FechamentoContabilController.java usa @Resource
+
+   📁 ParametroRecursoGarantidorService.java:42
+   ⚠️ Adicionar @Valid no parâmetro do método calcular()
+
+   ✅ Estrutura de pacotes OK
+   ✅ Nomenclatura segue padrão do projeto
+
+   Total: 2 sugestões, 2 ok
+   ```
+
+6. **Pergunta**:
+   ```
+   Deseja postar os comentários no PR?
+   a) Postar todos os comentários
+   b) Postar apenas os selecionados
+   c) Não postar, apenas exibir
+   ```
+
+7. **Se "a" ou "b"**, agente constrói o JSON com **TODOS** os comentários em lote único e posta de uma vez:
+   ```bash
+   bash lib/code-review.sh <projeto> <PR> post /tmp/comments.json
+   ```
+
+   **Regra obrigatória:** NUNCA postar comentários separadamente. Todo o lote de comentários deve ser construído e postado em uma única chamada `post`. Se o usuário aprovar e depois pedir um novo comentário, este deve ser um novo lote separado — mas a análise inicial deve cobrir todos os arquivos de uma vez.
+
+8. **Finalizar revisão** — o usuário pode encerrar a revisão de um PR a qualquer momento com `finalizei` / `PR finalizado` / `done` / `encerrei`. O agente DEVE:
+   - Descartar todos os comentários pendentes não postados
+   - Limpar o contexto de PR ativo (projeto, número, diff)
+   - Registrar mentalmente que o PR foi finalizado
+   - Ficar pronto para receber um novo PR sem risco de postar no anterior
+
+   ```bash
+   # Exemplo:
+   Você: "finalizei o PR 763, analise o PR 864"
+
+   Agente:
+   ├── PR #763 finalizado — comentarios pendentes descartados
+   ├── Busca diff do PR #864
+   └── ...
+   ```
+
+### Formato do JSON de comentários
+
+Cada comentário inline segue o formato da API do Bitbucket Cloud:
+
+```json
+[
+  {
+    "content": {"raw": "Usar @RequiredArgsConstructor em vez de @Resource"},
+    "inline": {"to": 15, "path": "ParametroRecursoGarantidorController.java"}
+  },
+  {
+    "content": {"raw": "Adicionar @Valid no parâmetro do método"},
+    "inline": {"to": 42, "path": "ParametroRecursoGarantidorService.java"}
+  }
+]
+```
+
+- `to`: número da linha no arquivo (versão nova)
+- `path`: caminho do arquivo dentro do repositório
+- `content.raw`: texto do comentário (markdown)
+
+### Credenciais
+
+O script suporta três formas de autenticação no Bitbucket (nesta ordem):
+
+| Fonte | Exemplo |
+|-------|---------|
+| `~/.bitbucket-credentials` | `email:token_bitbucket` |
+| `~/.jira-credentials` (fallback) | `email:token_jira` |
+| Env vars | `JIRA_USER` + `BITBUCKET_APP_PASSWORD` |
+
+> **Nota:** App Passwords foram deprecados e serão removidos em Julho de 2026. Use **Atlassian API tokens** com escopos específicos para cada aplicativo:
+> - Token Jira (escopo Jira) → `~/.jira-credentials`
+> - Token Bitbucket (escopo Pull requests Read/Write) → `~/.bitbucket-credentials`
+
+Para criar um token: https://id.atlassian.com/manage/api-tokens  
+Permissão necessária: **Pull requests (Read + Write)**
+
+### Lista de verificação para o agente
+
+Ao revisar um PR, o agente DEVE verificar:
+
+- [ ] Nomes de classes/pacotes seguem o padrão do projeto
+- [ ] Anotações seguem o padrão existente (projetos-context)
+- [ ] Endpoints REST usam `@RequestMapping`, `@GetMapping`, `@PostMapping` conforme padrão
+- [ ] Métodos usam `@Valid` e `@RequestBody` nos parâmetros
+- [ ] Tratamento de erros com `ResponseEntity`
+- [ ] Injeção de dependência com `@RequiredArgsConstructor` ou `@Resource` (conforme padrão)
+- [ ] Testes de integração inclusos
+- [ ] Código não referencia SDD, levels (junior/senior/pleno), ou artefatos de demo
+
+---
+
+## 20. Documentação OpenAPI / API-First
+
+### 20.1. Quando gerar
+
+A especificação OpenAPI é gerada automaticamente pelo pipeline sempre que o ticket envolver endpoints de API. A detecção é automática via `generate_openapi_spec.py`:
+
+- **Keywords** que disparam a geração: endpoint, api, controller, rest, @PostMapping, @GetMapping, etc.
+- **Tasks do tipo** `adicionar-endpoint` sempre disparam
+- **Observações** com code blocks contendo `@RequestMapping`, `@RequestBody`, `ResponseEntity`
+
+### 20.2. Pipeline
+
+```
+gerar-documentacao.sh: step 6.5 → generate_openapi_spec.py → openapi.yaml
+jira-update-description.sh: parse openapi.yaml → markdown tables → ADF description + attachment
+```
+
+### 20.3. Arquivos gerados
+
+| Arquivo | Conteúdo | Onde fica |
+|---------|----------|-----------|
+| `openapi.yaml` | Especificação OpenAPI 3.0 completa | `tickets/TICKET_ID/openapi.yaml` |
+| Tabelas na descrição do Jira | Endpoints (método + path + descrição) + Schemas (campos + tipos) | Descrição do ticket no Jira |
+| Attachment no Jira | `openapi.yaml` anexado ao ticket para download | Ticket no Jira |
+
+### 20.4. Fontes de dados para a OpenAPI
+
+O `generate_openapi_spec.py` extrai informações de múltiplas fontes:
+
+1. **`description.md`** — tabelas de endpoints e schemas, exemplos JSON
+2. **`status-tasks.json`** — observações com code blocks Java contendo `@PostMapping`, `@RequestBody`, classes DTO
+3. **`projects-context/<projeto>.md`** — `@RequestMapping` base paths, `@Tag(name = "...")`
+4. **Código fonte do projeto** — DTOs reais do diretório `src/main/java/` (Input, Output, DTO, Filter, Request, Response)
+5. **`refine-config.json` / `refine-config.local.json`** — `apiBaseUrl` do projeto
+
+### 20.5. Estrutura do openapi.yaml
+
+```yaml
+openapi: "3.0.3"
+info:
+  title: "SPR-3459: Resumo do ticket"
+  version: "2026-01-01"
+servers:
+  - url: https://api.exemplo.com
+    description: Ambiente de produção
+tags:
+  - name: "Conta Contabil"
+    description: "Endpoint de conta contabil"
+paths:
+  /api/contas/buscar:
+    get:
+      operationId: "get_api_contas_buscar"
+      summary: "Buscar conta contabil"
+      parameters:
+        - name: filtro
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Operação realizada com sucesso"
+components:
+  schemas:
+    ContaContabilBuscarResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        numeracao:
+          type: string
+        nome:
+          type: string
+```
+
+### 20.6. Templates
+
+O template OpenAPI usa a sintaxe Mustache-like do `render_template.py`:
+
+| Sintaxe | Uso |
+|---------|-----|
+| `{{VAR}}` | Substituição de variável |
+| `{% if VAR %}`...`{% endif %}` | Condicional |
+| `{% for item in LIST %}`...`{% endfor %}` | Iteração |
+
+Variáveis disponíveis no template:
+
+| Variável | Fonte | Exemplo |
+|----------|-------|---------|
+| `{{TICKET_ID}}` | Nome do diretório do ticket | `SPR-3459` |
+| `{{SUMMARY}}` | `jira-data.json → summary` | `Criar busca de conta contabil` |
+| `{{DATE}}` | Data atual | `2026-01-01` |
+| `{{SERVERS}}` | `refine-config.json → apiBaseUrl` | `https://api.exemplo.com` |
+| `{{API_TAGS}}` | `projects-context/` tags | Lista de `{name, description}` |
+| `{{ENDPOINTS}}` | Extraído de tasks + desc | Lista de endpoints |
+| `{{SCHEMAS}}` | Extraído de tasks + DTOs fonte | Dict de schemas |
+| `{{PROJECT_NAME}}` | `refine-config.json` | `dataa-tesouraria` |
+
+### 20.7. Customização de apiBaseUrl
+
+Para que a OpenAPI inclua a URL base do servidor, configure `apiBaseUrl` no projeto em `refine-config.local.json`:
+
+```json
+{
+  "projects": [
+    {
+      "name": "meu-projeto",
+      "apiBaseUrl": "https://api.exemplo.com"
+    }
+  ]
+}
+```
+
+Se `apiBaseUrl` estiver vazio ou ausente, a seção `servers` será omitida do YAML.
+
+### 20.8. Atualização após implementação
+
+Quando tasks são concluídas e novos endpoints são implementados:
+
+```bash
+python3 lib/generate_openapi_spec.py tickets/TICKET_ID
+```
+
+Isso re-gera o `openapi.yaml` com novos endpoints e schemas detectados das observações atualizadas. Em seguida, re-envie ao Jira:
+
+```bash
+bash lib/jira-update-description.sh TICKET_ID --update-status
+```
+
+O script atualizará as tabelas na descrição e fará upload do novo YAML como attachment (substituindo o anterior no Jira).
+
+---
+
+## 21. Humanização Automática de Texto
+
+O pipeline aplica humanização automática no texto enviado ao Jira e ao
+Bitbucket, removendo marcadores visíveis de template (`---`, `***`, `___`)
+e colapsando linhas em branco múltiplas.
+
+### 21.1. Onde é aplicada
+
+| Ponto | Modo | Transformações |
+|-------|------|----------------|
+| `jira-update-description.sh` | `--jira` | Remove `---`, `***`, `___`; colapsa blanks; preserva `#` (necessário para ADF) |
+| `code-review.sh post` | `--pr` | Converte `#` → `**texto**`; remove separadores; colapsa blanks; converte tabelas 2-3 colunas para listas |
+
+### 21.2. Comportamento padrão
+
+- **Jira:** humanização ON (não configurável)
+- **Bitbucket PR:** humanização ON por padrão. Use `--no-humanize` para desligar:
+
+```bash
+bash lib/code-review.sh projeto 123 post /tmp/comments.json --no-humanize
+```
+
+### 21.3. Engine
+
+`lib/humanize_text.py` lê markdown via stdin, escreve texto humanizado via stdout.
+
+```bash
+cat input.md | python3 lib/humanize_text.py --jira
+cat input.md | python3 lib/humanize_text.py --pr
+```
+
+### 21.4. Regras para o agente
+
+- PR comments devem ser escritos em linguagem natural, sem `##`, `---`, ou tabelas
+- O agente não precisa se preocupar com a formatação técnica — o `humanize_text.py` lida com isso
+- Para dry-run do Jira, o preview mostra o markdown já humanizado (o que de fato será enviado)
