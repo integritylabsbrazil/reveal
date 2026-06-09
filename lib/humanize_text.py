@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
 humanize_text.py — Transforma markdown estruturado em texto de aparencia
-mais natural, removendo marcadores de template, backticks e code blocks.
+mais natural, removendo marcadores de template e ajustando formatacao.
 
 Uso: cat input.md | python3 humanize_text.py [--jira|--pr]
 
-  --jira  (padrao) Preserva #/## headings (build_adf.py os converte para ADF).
-                   Remove ---, ***, ___, backticks inline e blocos de codigo,
-                   alem de linhas em branco multiplas.
+  --jira  (padrao) Preserva headings e blocos de codigo (build_adf.py os
+                   converte para ADF). Remove ---, ***, ___, backticks
+                   inline e colapsa linhas em branco multiplas.
 
   --pr             Converte #/##/### para **texto** (negrito) pois PR comments
                    sao markdown puro, sem conversao ADF.
+                   Remove blocos de codigo e backticks inline.
                    Converte tabelas 2-3 colunas para bullet lists.
-                   Tambem remove backticks inline e blocos de codigo.
 """
 
 import re
@@ -121,8 +121,8 @@ def humanize(text, mode='jira'):
             i += 1
             continue
 
-        # Skip fenced code blocks in both modes
-        if is_fence_line(stripped):
+        # PR mode: skip fenced code blocks (nao renderizam bem em comments)
+        if mode == 'pr' and is_fence_line(stripped):
             i += 1
             while i < len(lines) and not is_fence_line(lines[i].strip()):
                 i += 1
@@ -139,7 +139,7 @@ def humanize(text, mode='jira'):
 
             result.append(convert_headings_to_bold(remove_inline_backticks(cleaned)))
         else:
-            # Jira mode: remove inline backticks
+            # Jira mode: preserve code blocks, just remove inline backticks
             result.append(remove_inline_backticks(cleaned))
 
         i += 1

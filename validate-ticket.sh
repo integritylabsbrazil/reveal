@@ -176,7 +176,12 @@ validate_ticket() {
         while IFS='|' read -r _ _ arquivo _; do
             arquivo=$(echo "$arquivo" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             if [[ "$arquivo" =~ \.java$ ]] && [[ ! "$arquivo" =~ ^- ]]; then
-                found=$(find "$TICKET_DIR/../../projetos" -name "$arquivo" 2>/dev/null | head -1)
+                # Tenta ler caminho do projeto do status-tasks.json
+                PROJ_PATH=$(jq -r '.tarefas[0].caminhoProjeto // ""' "$TASKS_FILE" 2>/dev/null)
+                if [[ -z "$PROJ_PATH" || "$PROJ_PATH" == "null" ]]; then
+                    PROJ_PATH="$TICKET_DIR/../.."
+                fi
+                found=$(find "$PROJ_PATH" -name "$arquivo" 2>/dev/null | head -1)
                 if [[ -z "$found" ]]; then
                     check_warn "Arquivo nao encontrado" "implementation-plan.md referencia '$arquivo' mas nao foi encontrado nos projetos"
                     plan_has_issues=1

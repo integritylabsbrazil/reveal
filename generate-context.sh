@@ -57,8 +57,11 @@ exec 3>&1
     echo "# Contexto de Implementação — $TICKET_ID"
     echo ""
 
-    # Resumo
-    SUMMARY=$(jq -r '.ticketId' "$TASKS_FILE")
+    # Resumo — tenta ler titulo real do jira-data.json, fallback para ticketId
+    SUMMARY=$(jq -r '.fields.summary // .ticketId // ""' "$TICKET_DIR/jira-data.json" 2>/dev/null)
+    if [[ -z "$SUMMARY" ]]; then
+        SUMMARY=$(jq -r '.ticketId' "$TASKS_FILE")
+    fi
     echo "## $SUMMARY"
     echo ""
 

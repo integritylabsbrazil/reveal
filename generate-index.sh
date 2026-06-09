@@ -62,12 +62,24 @@ INDEX_FILE="$TICKETS_DIR/INDEX.md"
                 em_andamento=$(jq -r '[.tarefas[] | select(.status == "em_andamento")] | length' "$tasks_file")
                 falhou=$(jq -r '[.tarefas[] | select(.status == "falhou")] | length' "$tasks_file")
             else
-                total=$(grep -c '"id":' "$tasks_file" 2>/dev/null || echo "0")
-                concluidas=$(grep -c '"concluido"' "$tasks_file" 2>/dev/null || echo "0")
-                canceladas=$(grep -c '"cancelado"' "$tasks_file" 2>/dev/null || echo "0")
-                pendentes=$(grep -c '"pendente"' "$tasks_file" 2>/dev/null || echo "0")
-                em_andamento=$(grep -c '"em_andamento"' "$tasks_file" 2>/dev/null || echo "0")
-                falhou=$(grep -c '"falhou"' "$tasks_file" 2>/dev/null || echo "0")
+                # Fallback com python3 quando jq nao estiver disponivel
+                if command -v python3 &> /dev/null; then
+                    eval "$(python3 -c "
+import json
+with open('$tasks_file') as f:
+    d = json.load(f)
+    tasks = d.get('tarefas', [])
+    total = len(tasks)
+    concluidas = sum(1 for t in tasks if t.get('status') == 'concluido')
+    canceladas = sum(1 for t in tasks if t.get('status') == 'cancelado')
+    pendentes = sum(1 for t in tasks if t.get('status') == 'pendente')
+    em_andamento = sum(1 for t in tasks if t.get('status') == 'em_andamento')
+    falhou = sum(1 for t in tasks if t.get('status') == 'falhou')
+    print(f'total={total}; concluidas={concluidas}; canceladas={canceladas}; pendentes={pendentes}; em_andamento={em_andamento}; falhou={falhou}')
+")"
+                else
+                    total=0; concluidas=0; canceladas=0; pendentes=0; em_andamento=0; falhou=0
+                fi
             fi
         else
             total=0; concluidas=0; canceladas=0; pendentes=0; em_andamento=0; falhou=0

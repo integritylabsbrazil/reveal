@@ -470,6 +470,13 @@ Tasks podem ser executadas em qualquer ordem, desde que as dependências estejam
 
 ## 9. Templates de Prompts por Tipo de Task
 
+> **Atencao:** Os templates abaixo (9.1 a 9.5) usam steps numerados e backticks
+> porque sao **instrucoes para o agente** sobre como abordar cada tipo de task.
+> Eles NAO refletem o formato de output. Documentos gerados (description.md,
+> observacoes, refinamento) devem seguir a skill doc-natural com tom narrativo.
+> Exemplos de JSON, codigo e endpoints sao bem-vindos — desde que sem steps
+> prescritivos.
+
 ### 9.1. Tipo: `criar-classe`
 
 ```

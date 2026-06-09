@@ -19,6 +19,15 @@ Regras e validacoes que o dev precisa respeitar. Exemplos:
 - Nao pode repetir a mesma conta no mesmo grupo
 - Quando a conta e inativada, o parametro deve refletir a mudanca
 
+## Criterios de Aceitacao
+
+Cenarios de sucesso, falha e excecao que o dev deve considerar durante a implementacao. Exemplos:
+
+- CA1: Incluir conta contabil valida em um grupo — retorna 201 com os dados da associacao
+- CA2: Tentar incluir a mesma conta duas vezes no mesmo grupo — retorna erro 400 com mensagem de duplicidade
+- CA3: Tentar incluir conta contabil inativa — retorna erro 400 informando que a conta esta inativa
+- CA4: Excluir conta que ja possui obrigacao gerada — retorna erro 400 informando que nao e possivel excluir
+
 ## Dependencias
 
 Tickets relacionados que este afeta ou de que depende. Exemplo:
