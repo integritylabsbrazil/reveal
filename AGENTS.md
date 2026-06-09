@@ -270,7 +270,10 @@ Para cada projeto identificado como afetado:
 > Nota: `implementation-plan.md` agora é gerado pelo pipeline (`--plan`).
 > O agente não precisa mais criá-lo manualmente.
 
-1. **`description.md`**: Conteúdo do Jira enriquecido com análise de negócio
+1. **`description.md`**: Conteúdo do Jira enriquecido com análise de negócio.
+   Siga o template em `tickets/_template/description.md.example` e carregue a
+   skill **doc-natural** para o estilo de escrita. As secoes Objetivo, Situacao
+   Atual, Comportamento Novo e Regras de Negocio sao obrigatorias.
 2. **`roteiro-demo.md`** *(opcional)*: Script de apresentação para o negócio
 3. **`demo-artifacts/`** *(opcional)*: Artefatos da demonstração (Postman, SQL)
 

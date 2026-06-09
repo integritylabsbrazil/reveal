@@ -1,46 +1,30 @@
-# PROJ-123: Título da História
+# SPR-XXXX: Titulo do Ticket
 
-## Resumo
+## Objetivo
 
-**Historia** | **Medium** | **A Fazer** | **Release 1.0.0**
+Descrever em um paragrafo o proposito do ticket: qual funcionalidade esta sendo criada ou alterada, e para que serve. Foco no valor de negocio.
 
-**Epic Parent:** PROJ-100 — Épico principal
+## Situacao Atual
 
-**Responsável:** — | **Solicitante:** —
+Descrever como a funcionalidade se comporta hoje. Se for algo novo, dizer que nao existe. Se for alteracao, explicar o fluxo atual, as classes envolvidas, limitacoes.
 
-> **Estado:** Pendente de refinamento
+## Comportamento Novo
 
----
+Descrever o que muda depois da implementacao. Detalhar o fluxo novo, como os componentes se comportam, cenarios esperados. Pode usar bullet points ou paragrafos.
 
-## História de Usuário
+## Regras de Negocio
 
-> **Yo como:** [ator/papel]
-> **Quiero:** [funcionalidade desejada]
-> **Para:** [benefício/razão]
+Regras e validacoes que o dev precisa respeitar. Exemplos:
+- Apenas contas sinteticas e ativas podem ser selecionadas
+- Nao pode repetir a mesma conta no mesmo grupo
+- Quando a conta e inativada, o parametro deve refletir a mudanca
 
----
+## Dependencias
 
-## Contexto de Negócio
+Tickets relacionados que este afeta ou de que depende. Exemplo:
+- SPR-XXXX: Ticket antecessor (implementado)
+- SPR-YYYY: Ticket sucessor (frontend)
 
-Descrever aqui o contexto de negócio, motivação e impacto.
+## Observacoes de Implementacao
 
----
-
-## Critérios de Aceitação
-
-### CA1: [Título do critério]
-[Dado / Quando / Então]
-
-### CA2: [Título do critério]
-[Dado / Quando / Então]
-
----
-
-## Observações
-
-- [Observação 1]
-- [Observação 2]
-
----
-
-*Template gerado pelo Reveal. Substituir os valores de exemplo pelos dados reais do ticket.*
+Dicas tecnicas especificas, classes de referencia, padroes a seguir, atalhoes de codigo existente que podem ser reutilizados. Em texto natural, sem steps numerados.
