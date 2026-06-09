@@ -333,7 +333,7 @@ print('- (criar) Testes de integracao para o fluxo completo')
     local reveal_root
     reveal_root="$(cd "$ticket_dir/../.." && pwd)"
     local script_dir="$reveal_root/lib"
-    local template_file="${3:-$reveal_root/templates/refinamento-tecnico-template-improved.md}"
+    local template_file="${3:-$reveal_root/templates/refinamento-tecnico-template.md}"
 
     # --- Preparar secoes dinâmicas ---
 

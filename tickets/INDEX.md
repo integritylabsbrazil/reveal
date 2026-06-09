@@ -9,6 +9,7 @@ Lista de tickets documentados neste repositório.
 | [SPR-3420](./SPR-3420/) | [B] - Parâmetro - Recursos garantidores | 2 tarefas | 0/2 |
 | [SPR-3421](./SPR-3421/) | [B] - Exportação XML Previc  | 1 tarefas | 0/1 |
 | [SPR-3423](./SPR-3423/) | [B] - Parametrização Cota Patrimonial | 3 tarefas | 0/3 |
+| [SPR-3431](./SPR-3431/) | [B] - Parâmetro - Demonstração contábil  - DMPS | 2 tarefas | 0/2 |
 | [SPR-3434](./SPR-3434/) | [B] - Apresentação Balancete | 2 tarefas | 0/2 |
 | [SPR-3444](./SPR-3444/) | [B] - Alerta notificação  | 9 tarefas | 0/9 |
 | [SPR-3453](./SPR-3453/) | [B] - Alteração endpoint Balancete - Relatórios contábeis | 3 tarefas | 0/3 |
@@ -16,4 +17,4 @@ Lista de tickets documentados neste repositório.
 | [SPR-3502](./SPR-3502/) | [B] - Alteração exportação relatórios contábeis | 2 tarefas | 0/2 |
 
 ---
-*Gerado em 2026-06-09 19:48:04*
+*Gerado em 2026-06-09 20:11:26*
