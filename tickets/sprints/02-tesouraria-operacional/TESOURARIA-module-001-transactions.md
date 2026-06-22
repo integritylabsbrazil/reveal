@@ -1,46 +1,36 @@
 # Modulo: Transactions Engine
 
 ## Objetivo de Negocio
-Motor de transacoes financeiras imutavel, event-sourced, com CQRS. Substitui o LANCAMENTO_SIMPLES do legado por um modelo onde toda transacao e um evento que nunca pode ser alterado ou deletado — apenas compensado por outro evento.
+Registrar toda movimentacao financeira do fundo de forma que nenhuma transacao possa ser alterada ou apagada. Qualquer correcao gera uma nova transacao de estorno vinculada a original. Garantia de auditoria completa.
 
 ## O que Existe no Legado
 
 ### dataa-tesouraria
-- Tabela LANCAMENTO_SIMPLES: lancamentos financeiros com possibilidade de alteracao e exclusao logica
-- Tabela MOVIMENTACAO_FINANCEIRA: movimentacoes vinculadas a lancamentos
-- Tabela FOLHA_PAGAMENTO: folha
-- Tabela COMPETENCIA: competencia contabil
-- Tabela HISTORICO: historico do lancamento (texto livre)
-- Tabela DEBITOS_DIVERSOS: debitos avulsos
-- Modelo permite ALTERAR e EXCLUIR lancamentos (risco de auditoria)
+- Lancamentos financeiros que podem ser alterados e excluidos (risco de auditoria)
+- Movimentacoes vinculadas a lancamentos
+- Folha de pagamento
+- Historico em texto livre
+- Debitos avulsos
 
 ## Lacuna de Mercado
-- Modelo event-sourced: toda transacao e imutavel. Alteracao = novo evento de compensacao.
-- CQRS: escrita em event store, leitura em projecoes otimizadas.
-- Idempotencia: cada transacao tem chave unica para evitar duplicidade.
-- Rastreabilidade completa: quem criou, quando, qual IP, qual motivo.
-- Suporte a transacoes em moeda estrangeira com taxa de cambio historica.
+- Transacao imutavel: uma vez registrada, vira parte do historico permanente
+- Estorno obrigatorio: para corrigir, precisa lancar uma transacao de reversao
+- Rastreabilidade completa: quem criou, quando, por que, qual a origem
 
 ## Regras de Negocio
-1. Toda transacao tem: idempotencyKey, tipo, member, fundo, valor, data, moeda
-2. Transacoes sao imutaveis: nao podem ser alteradas ou excluidas
-3. Para corrigir: criar transacao de estorno (tipo = REVERSAO, referencia a original)
-4. Saldo de um fundo e calculado pela soma de todas as transacoes nao estornadas
-5. Transacoes tem status: PENDENTE, CONFIRMADA, ESTORNADA, REJEITADA
-6. Cada transacao tem trilha de auditoria (criacao, aprovacao, confirmacao)
-7. Chave de idempotencia previne processamento duplicado
+1. Toda transacao tem: tipo, participante, fundo, valor, data e motivo
+2. Transacoes nao podem ser alteradas ou excluidas depois de confirmadas
+3. Para corrigir: criar transacao de estorno referenciando a original
+4. Saldo do fundo e a soma de todas as transacoes nao estornadas
+5. Transacoes tem situacao: pendente, confirmada, estornada ou rejeitada
+6. Cada transacao registra quem criou, quem aprovou e quando
 
 ## Criterios de Aceitacao
-1. Criacao de transacao com idempotencyKey retorna mesma resposta em caso de repeticao
-2. Transacao confirmada aparece no saldo do fundo
-3. Estorno de transacao reverte o efeito no saldo com referencia a original
-4. Nao e possivel alterar campos de uma transacao confirmada
-5. Auditoria mostra data, usuario, IP de cada acao na transacao
-6. Projecao de saldo calcula corretamente com 10k transacoes
+1. Transacao confirmada aparece no saldo do fundo
+2. Estorno reverte o efeito no saldo e mantem referencia a original
+3. Nao e possivel alterar nenhum dado de uma transacao ja confirmada
+4. Historico mostra data, usuario e motivo de cada acao na transacao
+5. Saldo calculado corretamente mesmo com milhares de transacoes
 
-## Dependencias Tecnicas
+## Dependencias
 - 01-Members, 01-Financial Institutions
-
-## Projetos Legados de Referencia
-- Tesouraria: `src/main/java/**/lancamento/`, `src/main/java/**/movimentacao/`
-- Nova implementacao usa EventStoreDB (events) + PostgreSQL (projecoes)

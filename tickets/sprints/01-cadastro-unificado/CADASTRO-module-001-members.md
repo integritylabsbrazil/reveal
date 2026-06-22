@@ -1,53 +1,41 @@
 # Modulo: Members
 
 ## Objetivo de Negocio
-Unificar FAVORECIDO (tesouraria), PARTICIPANTE (previdenciario), BENEFICIARIO e PATROCINADOR em uma unica entidade "Member" com tipos (PF, PJ, dependente) e papeis (participante, beneficiario, patrocinador, terceiro). Um member pode ter multiplos papeis simultaneamente.
+Unificar o cadastro de pessoas e empresas que hoje existe separado em tesouraria (favorecidos) e previdencia (participantes). Uma pessoa tem um unico cadastro, independente de ser participante de um fundo, beneficiario de outro ou patrocinador de um terceiro.
 
 ## O que Existe nos Legados
 
 ### dataa-tesouraria
-- Tabela FAVORECIDO: ~30 colunas (ID, NOME, CPF_CNPJ, TIPO, ATIVO, LOGRADOURO, BAIRRO, CIDADE, UF, CEP, TELEFONE, EMAIL, etc.)
-- Tabela ENDERECO: enderecos separados do favorecido
-- Tabela PROFISSAO, ESCOLARIDADE, SEXO, ESTADO_CIVIL: dominios auxiliares
-- Tabela BENEFICIARIO: vinculado a FAVORECIDO
-- Tabela DEPENDENTE: vinculado a FAVORECIDO
-- Tabela PATROCINADOR: entidade patrocinadora
+- Cadastro de favorecidos com dados pessoais e endereco
+- Beneficiarios e dependentes vinculados a favorecidos
+- Patrocinadores (empresas patrocinadoras de planos)
 
 ### mapsdataa-previdenciario
-- Entidade PARTICIPANTE: servidor publico, vinculado a orgao
-- Entidade PATROCINADOR: orgao publico, tribunal, poder
-- Entidade BENEFICIARIO: vinculado a participante
-- Entidade DEPENDENTE: vinculado a beneficiario
-- Vinculo: PLANO -> PATROCINADOR -> PARTICIPANTE
+- Cadastro de participantes (servidores publicos) vinculados a orgaos
+- Patrocinadores (orgaos publicos, tribunais)
+- Beneficiarios e dependentes vinculados a participantes
+
+Uma mesma pessoa pode existir nos dois sistemas sem nenhuma relacao entre os cadastros.
 
 ## Lacuna de Mercado
-- Unificacao real: no legado, uma mesma pessoa pode existir como FAVORECIDO no tesouraria e PARTICIPANTE no previdenciario sem relacao entre si
-- Autosservico: participante atualizar seus dados sem passar pelo operador
-- Biometria facial: validacao de identidade via selfie vs documento
-- Enriquecimento automatico de dados via CPF (API Receita Federal, Serasa)
-- Hierarquia de members: grupo economico, holding, subsidiaria
+- Cadastro unico: uma pessoa aparece uma so vez, com todos os seus papeis
+- Autosservico: o participante mesmo atualiza seus dados, sem precisar do operador
+- Validacao automatica de CPF e endereco
+- Hierarquia entre empresas: grupo economico, holding, subsidiaria
 
 ## Regras de Negocio
-1. Member tem tipo: PF (pessoa fisica), PJ (pessoa juridica), DEPENDENTE
-2. Papeis: PARTICIPANTE, BENEFICIARIO, PATROCINADOR, PRESTADOR, TERCEIRO
-3. Um member PF pode ser participante de um fundo e patrocinador de outro
-4. CPF/CNPJ e obrigatorio e unico por tenant
-5. Dados de contato sao versionados (historico de enderecos, telefones, emails)
-6. Documentos comprobatorios sao armazenados no modulo Documents (005)
-7. Aprovacao de cadastro pode ser automatica (via integracao Receita) ou manual (workflow)
-8. Members inativos nao podem participar de transacoes financeiras
+1. Toda pessoa fisica ou juridica e um member, com tipo PF ou PJ
+2. Papeis: participante de fundo, beneficiario, patrocinador, prestador de servico
+3. Uma pessoa pode ser participante de um fundo e patrocinador de outro ao mesmo tempo
+4. CPF/CNPJ e obrigatorio e nao pode se repetir dentro da mesma entidade
+5. Alteracao de dados cadastrais mantem historico
+6. Cadastro de novo member pode ser aprovado automaticamente ou passar por aprovacao
+7. Member inativo nao pode participar de transacoes financeiras nem receber beneficios
 
 ## Criterios de Aceitacao
-1. Criacao de member PF com CPF valido enriquece endereco automaticamente via CEP
-2. Member PJ permite cadastro de socios com participacao
-3. Um member pode ser participante de 2 fundos e patrocinador de 1 ao mesmo tempo
-4. Historico de alteracoes cadastrais e mantido com data e autor
-5. Busca por member funciona por: CPF/CNPJ, nome (parcial), email, telefone
-6. Bloqueio de member inativo impede transacoes
-
-## Dependencias Tecnicas
-- 00-Identity (authentication, RBAC para quem pode cadastrar)
-
-## Projetos Legados de Referencia
-- Tesouraria: `src/main/java/**/favorecido/`, `src/main/java/**/patrocinador/`, `src/main/java/**/beneficiario/`
-- Previdenciario: `core/src/main/java/**/participante/`, `core/src/main/java/**/patrocinador/`, `core/src/main/java/**/beneficiario/`
+1. Cadastro de pessoa fisica com CPF valido
+2. Cadastro de pessoa juridica com CNPJ e socios
+3. Uma mesma pessoa e participante de um fundo e patrocinadora de outro
+4. Historico mostra todas as alteracoes cadastrais com data e responsavel
+5. Busca por CPF, nome ou email localiza o member em segundos
+6. Member inativo aparece como bloqueado para novas transacoes

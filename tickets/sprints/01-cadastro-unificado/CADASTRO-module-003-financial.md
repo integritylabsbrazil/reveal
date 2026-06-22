@@ -1,46 +1,37 @@
 # Modulo: Financial Institutions
 
 ## Objetivo de Negocio
-Gerenciar instituicoes financeiras, agencias, contas bancarias e chaves PIX utilizadas nas operacoes de tesouraria e previdencia. Centralizar o cadastro bancario que hoje existe duplicado nos dois legados.
+Centralizar o cadastro de bancos, agencias e contas bancarias utilizados nas operacoes do fundo. Cada participante e cada fundo precisam de contas para receber e pagar valores.
 
 ## O que Existe nos Legados
 
 ### dataa-tesouraria
-- Tabela BANCO: codigo (COMPE), nome, site
-- Tabela AGENCIA: codigo, digito, nome, endereco, banco FK
-- Tabela CONTA_CORRENTE: numero, digito, agencia FK, favorecido FK, tipo, ativo
-- Tabela TIPO_CONTA: corrente, poupanca, pagamento
+- Bancos com codigo e nome
+- Agencias com codigo e endereco
+- Contas correntes vinculadas a favorecidos
 
 ### mapsdataa-previdenciario
-- Tabela INSTITUICAO_FINANCEIRA: dados bancarios com codigo, nome
-- Tabela AGENCIA: codigo, digito, endereco
-- Tabela CONTA_BANCARIA: dados da conta vinculada a participante ou plano
+- Instituicoes financeiras
+- Agencias vinculadas
+- Contas bancarias vinculadas a participantes e planos
 
 ## Lacuna de Mercado
-- Integracao PIX: cadastro e validacao de chaves PIX (CPF, CNPJ, email, telefone, aleatoria)
-- Validacao de conta bancaria via consulta ao BACEN (comprovacao de titularidade)
-- Historico de contas bancarias de um member (contas antigas, motivo da troca)
-- Regras de conta padrao por tipo de operacao (ex: pagamento de beneficio sempre para conta X)
-- Compliance bancario: bloqueio de contas em paises nao cooperantes
+- Chave PIX como forma de identificacao de conta
+- Validacao de titularidade: a conta realmente pertence a quem diz ser
+- Historico de contas do participante: contas antigas, motivo da troca
+- Conta padrao por tipo de operacao (ex: pagamento de beneficio sempre para conta X)
 
 ## Regras de Negocio
-1. Conta bancaria pertence a um member (PF ou PJ)
-2. Cada member pode ter N contas, mas uma e a padrao por tipo de operacao
-3. Chave PIX deve ser unica por tenant
-4. Validacao de titularidade: member PF precisa ser titular ou procurador
-5. Contas podem ser bloqueadas para tipos especificos de operacao
-6. Historico mantem contas inativas por 5 anos (exigencia legal)
+1. Conta bancaria pertence a uma pessoa fisica ou juridica
+2. Cada pessoa pode ter varias contas, mas uma e a principal para cada finalidade
+3. Chave PIX e vinculada a pessoa e deve ser unica
+4. Contas podem ser bloqueadas para tipos especificos de transacao
+5. Troca de conta registra data e motivo
+6. Historico de contas e mantido por 5 anos apos o encerramento
 
 ## Criterios de Aceitacao
-1. Cadastro de conta bancaria com validacao de numero + digito
-2. Chave PIX CPF e validada contra o CPF do member
-3. Member pode ter conta padrao para recebimento e outra para pagamento
-4. Troca de conta registra motivo e aprovador no historico
-5. Bloqueio de conta impede seu uso em novas transacoes
-
-## Dependencias Tecnicas
-- 001 - Members
-
-## Projetos Legados de Referencia
-- Tesouraria: `src/main/java/**/banco/`, `src/main/java/**/agencia/`, `src/main/java/**/contacorrente/`
-- Previdenciario: `core/src/main/java/**/instituicaoFinanceira/`
+1. Cadastro de banco, agencia e conta bancaria
+2. Participante cadastra chave PIX vinculada ao seu CPF
+3. Participante define uma conta principal para receber beneficios
+4. Troca de conta registra data e motivo no historico
+5. Conta bloqueada nao pode ser usada em novas transacoes

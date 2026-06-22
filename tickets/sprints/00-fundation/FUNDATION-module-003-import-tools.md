@@ -1,45 +1,35 @@
 # Modulo: Import Tools
 
 ## Objetivo de Negocio
-Fornecer ferramentas para importar dados de sistemas legados (dataa-tesouraria, mapsdataa-previdenciario e outros) para o ClearPension. Essencial para a migracao de clientes sem interrupcao das operacoes.
+Importar dados de sistemas legados para o ClearPension durante a migracao de clientes. Cada cliente que chega tem anos de dados em sistemas diferentes — e preciso trazer tudo sem perder informacao e sem interromper as operacoes.
 
 ## O que Existe nos Legados
-Nenhum dos legados possui ferramentas de importacao/exportacao padronizadas.
+Nenhum dos legados possui ferramentas de migracao. A entrada de um novo cliente e um projeto de meses com consultoria.
 
 ### dataa-tesouraria
-- Scripts SQL avulsos para carga inicial
-- Relatorios em CSV para exportacao manual
-- Sem API de importacao de massa
+- Exportacao manual via relatorios
+- Scripts avulsos feitos sob demanda
 
 ### mapsdataa-previdenciario
-- Nao ha ferramentas de migracao
-- Exportacao via relatorios JasperReports
+- Exportacao via relatorios
+- Sem ferramenta de carga inicial
 
 ## Lacuna de Mercado
-Ferramentas de migracao sao um diferencial competitivo crucial. Concorrentes tradicionais nao oferecem on-ramp automatizado — a migracao e tipicamente um projeto de meses com consultoria.
+Migracao automatizada e um diferencial competitivo enorme. Concorrentes tradicionais levam de 3 a 6 meses para implantar um cliente. Nosso objetivo e reduzir para dias.
 
 ## Regras de Negocio
-1. Importacao via CSV, JSON ou conexao direta JDBC com banco legado
-2. Mapeamento de campos entre schema legado e novo e configurado via YAML
-3. Validacao pre-importacao: verifica consistencia, duplicatas e integridade referencial
-4. Importacao em lotes com checkpoint e rollback parcial em caso de erro
-5. Relatorio de importacao: registros importados, rejeitados, warnings
-6. Suporte a dry-run: simula importacao sem persistir dados
-7. Historico de importacoes por tenant com possibilidade de reverter
-8. Pipeline de ETL versionado (cada versao de mapeamento e imutavel)
+1. Importacao guiada por tipo de entidade: participantes, contribuicoes, lancamentos, emprestimos, saldos
+2. Cada tipo de entidade tem layout de arquivo pre-definido (CSV padrao)
+3. Antes de importar, o sistema valida os dados: CPF duplicado, valores inconsistentes, campos obrigatorios
+4. E possivel simular a importacao para ver o resultado antes de confirmar
+5. Se um lote falhar, os lotes anteriores permanecem importados (nao perde o que ja foi carregado)
+6. Relatorio completo ao final: quantos registros importados, quantos rejeitados e por que
+7. Historico de todas as importacoes realizadas, com data e responsavel
 
 ## Criterios de Aceitacao
-1. Ferramenta importa CSV de 100 mil registros em menos de 5 minutos
-2. Validacao pre-importacao detecta todos os erros de schema e duplicatas
-3. Dry-run mostra relatorio de impacto sem persistir dados
-4. Rollback parcial funciona quando um lote falha no meio do processo
-5. Mapeamento YAML permite transformacao de campos (ex: data formato BR -> ISO)
-6. Historico de importacoes permite auditoria completa
-
-## Dependencias Tecnicas
-- 001 - Tenant Registry (para saber em qual tenant importar)
-
-## Projetos Legados de Referencia
-- Tesouraria: schema completo em `target/database_dump.sql` (127 tabelas)
-- Previdenciario: schema nos changelogs Liquibase (`db/changelog/`)
-- Ambos os schemas servem como origem para os mapeamentos de importacao
+1. Arquivo CSV de 100 mil participantes e importado e validado
+2. Validacao pre-importacao aponta todos os erros antes de persistir
+3. Simulacao mostra relatorio de impacto sem efetivar a importacao
+4. Erro no meio do processo nao perde os registros ja importados
+5. Historico permite consultar importacoes passadas e seus resultados
+6. Importacao especifica para: participantes, contribuicoes, saldos, lancamentos financeiros, emprestimos
