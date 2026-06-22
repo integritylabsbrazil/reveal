@@ -15,6 +15,9 @@ Lista de tickets documentados neste repositório.
 | [SPR-3453](./SPR-3453/) | [B] - Alteração endpoint Balancete - Relatórios contábeis | 3 tarefas | 0/3 |
 | [SPR-3461](./SPR-3461/) | Calculo TAFIC - Lançamento contábil | 3 tarefas | 0/3 |
 | [SPR-3502](./SPR-3502/) | [B] - Alteração exportação relatórios contábeis | 2 tarefas | 0/2 |
+| [SPR-3504](./SPR-3504/) | [B][DT] - Configurar JaCoCo e estabelecer baseline de cobertura | 1 tarefas | 1/1 |
+| [SPR-3505](./SPR-3505/) | Configurar SonarQube/Checkstyle para governanca de qualidade | 5 tarefas | 5/5 |
+| [SPR-3508](./SPR-3508/) | Criar testes unitarios para dominios criticos sem cobertura | 5 tarefas | 5/5 |
 
 ---
-*Gerado em 2026-06-09 20:11:26*
+*Gerado em 2026-06-15 16:03:55*

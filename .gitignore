@@ -4,6 +4,7 @@
 tickets/*/
 !tickets/_template/
 !tickets/INDEX.md
+!tickets/sprints/
 
 # Configuração local (cópia de refine-config.json com dados reais)
 refine-config.local.json
