@@ -1,0 +1,32 @@
+version: 1
+
+project:
+  id: ""
+  name: ""
+  description: ""
+  type: application
+  repository: ""
+
+technology:
+  language: []
+  frameworks: []
+  platforms: []
+  build_tools: []
+
+architecture:
+  style: []
+  modules: []
+
+integrations: []
+
+conventions: []
+
+references: []
+
+permissions:
+  repository:
+    read: true
+    write: false
+  jira:
+    read: true
+    write: false
