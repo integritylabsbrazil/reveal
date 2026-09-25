@@ -6,10 +6,13 @@ from .planner import normalize_tasks
 
 def apply_analysis(root, ticket, result):
     data = dict(ticket)
-    data["status"] = "understood"
+    questions = result.get("questions", [])
+    target_status = "questions_pending" if questions else "understood"
+    validate_transition(ticket.get("status", "discovered"), target_status)
+    data["status"] = target_status
     data["findings"] = result.get("findings", [])
     data["decisions"] = result.get("decisions", [])
-    data["open_questions"] = result.get("questions", [])
+    data["open_questions"] = questions
     materialize_ticket(root, data)
     return data
 
@@ -17,6 +20,8 @@ def apply_analysis(root, ticket, result):
 def apply_refinement(root, ticket, result):
     data = dict(ticket)
     questions = result.get("questions", [])
+    target_status = "questions_pending" if questions else "refined"
+    validate_transition(ticket.get("status", ""), target_status)
     if questions:
         data["status"] = "questions_pending"
         data["open_questions"] = questions
@@ -25,6 +30,7 @@ def apply_refinement(root, ticket, result):
         data["requirements"] = result.get("requirements", data.get("requirements", []))
         data["acceptance_criteria"] = result.get("acceptance_criteria", data.get("acceptance_criteria", []))
         data["decisions"] = result.get("decisions", data.get("decisions", []))
+        data["open_questions"] = []
     materialize_ticket(root, data)
     return data
 
