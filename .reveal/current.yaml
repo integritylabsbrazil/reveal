@@ -1,14 +1,36 @@
 version: 1
+
 status: idle
-project: null
-ticket: null
-current_task: null
+
+project:
+  id: ""
+  name: ""
+  repository: ""
+
+ticket:
+  key: ""
+  status: ""
+
+current_task:
+  key: ""
+  status: ""
+
 references: []
+
 progress:
   completed: []
   pending: []
+
 decisions: []
 open_questions: []
 findings: []
-next_action: null
-last_update: null
+
+next_action:
+  type: ""
+  description: ""
+
+last_evidence: []
+
+last_update:
+  timestamp: ""
+  commit: ""
