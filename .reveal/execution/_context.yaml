@@ -1,0 +1,64 @@
+version: 1
+
+context:
+  invocation_id: ""
+  fingerprint: ""
+  operation: ""
+
+workspace:
+  status: ""
+  current_state: ""
+
+project:
+  id: ""
+  name: ""
+  repository: ""
+  baseline: {}
+
+ticket:
+  key: ""
+  status: ""
+  requirements: []
+  acceptance_criteria: []
+  impact: {}
+  decisions: []
+  findings: []
+
+task:
+  key: ""
+  status: ""
+  objective: ""
+  scope: {}
+  dependencies: []
+  acceptance: []
+  validation: {}
+
+references: []
+knowledge: []
+
+permissions:
+  read: []
+  write: []
+
+guards:
+  required: []
+
+repository:
+  ref: ""
+  commit: ""
+  branch: ""
+  allowed_paths: []
+
+evidence:
+  existing: []
+  required: []
+
+expected_output:
+  findings: []
+  decisions: []
+  artifacts: []
+  evidence: []
+  blockers: []
+
+metadata:
+  assembled_at: ""
