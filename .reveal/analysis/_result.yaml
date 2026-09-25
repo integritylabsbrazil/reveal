@@ -1,0 +1,40 @@
+version: 1
+
+analysis:
+  type: analysis
+  ticket: ""
+  project: ""
+
+input:
+  context_fingerprint: ""
+  scope: []
+
+findings: []
+impact:
+  modules: []
+  components: []
+  integrations: []
+  risks: []
+
+questions: []
+decisions: []
+
+provenance:
+  sources: []
+  confidence: verified
+
+comparison:
+  references: []
+  similarities: []
+  differences: []
+  patterns: []
+  migration_implications: []
+  validation_implications: []
+
+refinement:
+  ready: false
+  blockers: []
+
+metadata:
+  created_at: ""
+  completed_at: ""
