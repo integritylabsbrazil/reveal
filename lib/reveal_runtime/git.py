@@ -12,5 +12,27 @@ def git_info(root):
     commit = _run(root, "rev-parse", "HEAD")
     branch = _run(root, "branch", "--show-current")
     status = _run(root, "status", "--porcelain")
-    changed = [line[3:] for line in status.splitlines() if len(line) >= 4]
-    return {"commit": commit, "branch": branch, "dirty": bool(status), "changed_files": changed}
+    changed = []
+    for line in status.splitlines():
+        if len(line) < 4:
+            continue
+        # Porcelain v1 uses two status columns followed by a space.
+        path = line[3:]
+        if " -> " in path:
+            path = path.split(" -> ", 1)[1]
+        changed.append(path)
+    return {
+        "commit": commit,
+        "branch": branch,
+        "dirty": bool(status),
+        "changed_files": changed,
+    }
+
+
+def has_drift(root, expected_commit):
+    """Return whether HEAD differs from an expected repository commit."""
+    expected = str(expected_commit or "").strip()
+    if not expected:
+        return False
+    current = git_info(root).get("commit", "")
+    return bool(current and current != expected)
