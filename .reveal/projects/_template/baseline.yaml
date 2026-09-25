@@ -1,0 +1,17 @@
+version: 1
+
+project:
+  id: ""
+  name: ""
+  description: ""
+  repository: ""
+
+  technologies: []
+  architecture: []
+  modules: []
+  conventions: []
+  integrations: []
+
+  last_verified:
+    commit: ""
+    timestamp: ""
