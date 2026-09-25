@@ -43,6 +43,9 @@ def resolve_next_action(state, config=None):
     if ticket_status in {"discovered", "understood", ""} and ticket.get("key"):
         return Action("ANALYZE_TICKET", "analyst", agents.get("analysis", default_provider),
                        "Ticket needs technical analysis before refinement.")
+    if ticket_status == "questions_pending":
+        return Action("ANSWER_QUESTIONS", "analyst", agents.get("analysis", default_provider),
+                       "Open refinement questions must be resolved before planning.")
     if ticket_status == "refined" or status == "refined":
         return Action("PLAN_TICKET", "planner", agents.get("planning", default_provider),
                        "Refinement is ready; planning can generate atomic tasks.")
