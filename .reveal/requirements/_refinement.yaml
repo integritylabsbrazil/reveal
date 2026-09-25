@@ -1,0 +1,40 @@
+version: 1
+
+requirement:
+  ticket: ""
+  project: ""
+  summary: ""
+  business_intent: ""
+  functional: []
+  non_functional: []
+
+acceptance_criteria: []
+
+scope:
+  included: []
+  excluded: []
+
+decisions: []
+
+questions:
+  - id: ""
+    category: ""
+    question: ""
+    reason: ""
+    blocking: false
+    resolved: false
+
+validation:
+  strategy: []
+  required_evidence: []
+
+refinement:
+  state: QUESTIONS_PENDING
+  blockers: []
+
+provenance:
+  sources: []
+
+metadata:
+  created_at: ""
+  completed_at: ""
