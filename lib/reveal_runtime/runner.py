@@ -12,6 +12,8 @@ from .providers import ProviderInvocation, get_provider
 from .validation import validate_repository, next_status
 from .engines import apply_analysis, apply_refinement, apply_plan
 from .tasks import load_tasks, select_next_task
+from .evidence import collect
+from .review import evaluate as evaluate_review
 
 
 def _event(root, event, **payload):
@@ -94,6 +96,9 @@ def run(root, action_override=None):
                 result["provider_result"]["blockers"] = ["Planning requires a refined ticket."]
                 return result
 
+    evidence = collect(root, provider_result.__dict__, validation)
+    result["execution_evidence"] = evidence
+
     result["evidence"] = provider_result.evidence
     result["artifacts"] = provider_result.artifacts
     result["findings"] = provider_result.findings
@@ -114,6 +119,15 @@ def run(root, action_override=None):
     transition = next_status(action.type, provider_result.status,
                              validation["status"] if validation else None)
     if transition:
+        if transition == "completed":
+            review = evaluate_review(state.get("current_task") or {}, evidence, provider_result.__dict__)
+            result["review"] = review
+            if review["status"] != "approved":
+                update_state(root, state, status="reviewing",
+                             next_action={"type": "REVIEW_TASK", "description": "Review gate has blockers."})
+                append_history(root, "REVIEW_BLOCKED", action=action.type, blockers=review["blockers"])
+                result["status"] = "review_required"
+                return result
         update_state(root, state, status=transition,
                      next_action={"type": "", "description": ""})
         if transition == "completed" and state.get("ticket", {}).get("key"):
