@@ -1,0 +1,52 @@
+version: 1
+
+plan:
+  ticket: ""
+  project: ""
+  requirement: ""
+  status: draft
+  summary: ""
+  approach: ""
+
+scope:
+  included: []
+  excluded: []
+
+dependencies:
+  external: []
+  tasks: []
+
+execution_order: []
+
+tasks:
+  - id: ""
+    objective: ""
+    scope:
+      allowed: []
+      forbidden: []
+    dependencies: []
+    expected_artifacts: []
+    acceptance: []
+    validation:
+      commands: []
+      checks: []
+      expected_results: []
+    execution:
+      complexity: medium
+      risk: medium
+      autonomy: assisted
+      requires_review: true
+    branch:
+      strategy: ""
+      name: ""
+
+risks: []
+validation_strategy: []
+blockers: []
+
+traceability:
+  requirement_to_tasks: []
+
+metadata:
+  created_at: ""
+  updated_at: ""
