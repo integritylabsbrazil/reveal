@@ -9,6 +9,7 @@ from .guards import evaluate
 from .state import load_config, load_state
 from .persistence import append_history, update_state
 from .providers import ProviderInvocation, get_provider
+from .validation import validate_repository, next_status
 
 
 def _event(root, event, **payload):
@@ -77,7 +78,25 @@ def run(root, action_override=None):
     result["findings"] = provider_result.findings
     result["decisions"] = provider_result.decisions
     state["last_evidence"] = provider_result.evidence
-    update_state(root, state, next_action={"type": "", "description": ""})
+
+    validation = None
+    if action.type == "EXECUTE_TASK":
+        validation = validate_repository(root, config)
+        result["validation"] = validation
+        if validation["status"] == "failed":
+            update_state(root, state, status="implementing",
+                         next_action={"type": "VALIDATE_TASK", "description": "Validation failed; implementation needs correction."})
+            append_history(root, "VALIDATION_FAILED", action=action.type, output=validation["output"])
+            result["status"] = "failed"
+            return result
+
+    transition = next_status(action.type, provider_result.status,
+                             validation["status"] if validation else None)
+    if transition:
+        update_state(root, state, status=transition,
+                     next_action={"type": "", "description": ""})
+    else:
+        update_state(root, state, next_action={"type": "", "description": ""})
     append_history(
         root,
         "ACTION_COMPLETED",
