@@ -63,7 +63,7 @@ def run(root, action_override=None):
         action=action.type,
         context=context,
     )
-    provider_result = provider.invoke(invocation)
+    provider_result = provider.invoke(invocation, config)
     result["provider_result"] = provider_result.__dict__
     if provider_result.status != "success":
         reason = provider_result.message or "; ".join(provider_result.blockers) or provider_result.status
@@ -72,5 +72,18 @@ def run(root, action_override=None):
         result["status"] = "blocked"
         return result
 
-    append_history(root, "ACTION_COMPLETED", action=action.type, provider=provider.name)
+    result["evidence"] = provider_result.evidence
+    result["artifacts"] = provider_result.artifacts
+    result["findings"] = provider_result.findings
+    result["decisions"] = provider_result.decisions
+    state["last_evidence"] = provider_result.evidence
+    update_state(root, state, next_action={"type": "", "description": ""})
+    append_history(
+        root,
+        "ACTION_COMPLETED",
+        action=action.type,
+        provider=provider.name,
+        evidence=provider_result.evidence,
+        artifacts=provider_result.artifacts,
+    )
     return result
