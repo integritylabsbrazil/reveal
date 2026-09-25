@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Reveal runtime CLI.
 
-The user chooses a high-level operation; the runtime determines the current
-step from .reveal/current.yaml instead of requiring manual pipeline commands.
+The user selects only a high-level operation. The runtime determines the
+current step from .reveal/current.yaml and owns the transition.
 """
 import argparse
 import json
@@ -29,8 +29,9 @@ def main():
     args = parser.parse_args()
 
     root = find_root()
+
     if args.command == "status":
-        state, path = load_state(root)
+        state, _ = load_state(root)
         ctx = assemble_context(root)
         action = ctx["action"]
         print(f"workspace: {root}")
@@ -44,9 +45,19 @@ def main():
         print(f"reason: {action['reason']}")
         return 0
 
-    ctx = assemble_context(root)
-    print(json.dumps(ctx, ensure_ascii=False, indent=2))
-    return 0
+    result = run(root)
+    print(json.dumps(_json_safe(result), ensure_ascii=False, indent=2, default=str))
+    return 0 if result.get("status") not in {"blocked", "failed"} else 1
+
+
+def _json_safe(value):
+    if hasattr(value, "__dict__"):
+        return value.__dict__
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 if __name__ == "__main__":
