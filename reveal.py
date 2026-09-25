@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from lib.reveal_runtime.context import assemble_context
+from lib.reveal_runtime.runner import run
 from lib.reveal_runtime.state import load_state
 
 
