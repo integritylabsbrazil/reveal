@@ -1,6 +1,7 @@
 """Deterministic runtime engines that turn agent output into canonical artifacts."""
 from .tickets import materialize_ticket, materialize_tasks
 from .lifecycle import validate_transition
+from .planner import normalize_tasks
 
 
 def apply_analysis(root, ticket, result):
@@ -32,7 +33,7 @@ def apply_plan(root, ticket, result):
     validate_transition(ticket.get("status", ""), "planned")
     data = dict(ticket)
     data["status"] = "planned"
-    tasks = result.get("tasks", [])
+    tasks = normalize_tasks(root, ticket["key"], result.get("tasks", []))
     materialize_ticket(root, data)
     materialize_tasks(root, ticket["key"], tasks)
     return data, tasks
