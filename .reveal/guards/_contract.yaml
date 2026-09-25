@@ -1,0 +1,24 @@
+version: 1
+
+guard:
+  id: ""
+  version: 1
+  description: ""
+  applies_to: []
+
+policy:
+  default: block
+  on_failure: block
+
+inputs:
+  required: []
+
+checks: []
+
+result:
+  allowed: false
+  reason: ""
+  required_actions: []
+
+metadata:
+  evaluated_at: ""
