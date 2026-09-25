@@ -14,6 +14,10 @@ providers:
     command: ""
     timeout_seconds: 1800
 
+validation:
+  command: ""
+  timeout_seconds: 1800
+
 defaults:
   permissions:
     jira:
