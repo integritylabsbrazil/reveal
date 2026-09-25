@@ -1,0 +1,21 @@
+version: 1
+
+project:
+  id: ""
+  name: ""
+  type: application
+  repository: ""
+
+permissions:
+  jira:
+    read: true
+    write: false
+  repository:
+    read: true
+    write: false
+
+agents: {}
+
+guards: {}
+
+references: []
