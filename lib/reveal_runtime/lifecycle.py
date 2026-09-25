@@ -1,6 +1,10 @@
 """Validate Reveal lifecycle transitions at runtime."""
 
-TICKET_ORDER = ["discovered", "understood", "questions_pending", "refined", "planned", "ready", "implementing", "validating", "reviewing", "completed"]
+TICKET_ORDER = [
+    "discovered", "understood", "questions_pending", "refined", "planned",
+    "ready", "implementing", "validating", "reviewing", "completed",
+]
+
 TASK_TRANSITIONS = {
     "planned": {"ready", "blocked"},
     "ready": {"in_progress", "blocked"},
@@ -22,8 +26,13 @@ def can_transition(current, requested, kind="ticket"):
         return True
     if kind == "task":
         return requested in TASK_TRANSITIONS.get(current, set())
+
+    # Refinement is the gate between understanding and a stable requirement.
+    if current == "understood" and requested in {"questions_pending", "refined"}:
+        return True
     if current == "questions_pending" and requested == "refined":
         return True
+
     try:
         return TICKET_ORDER.index(requested) == TICKET_ORDER.index(current) + 1
     except ValueError:
