@@ -1,0 +1,25 @@
+version: 1
+
+reference:
+  id: ""
+  name: ""
+  description: ""
+  repository: ""
+
+source:
+  project_type: application
+  technologies: []
+  architecture: []
+  conventions: []
+
+usage:
+  allowed_for:
+    - architecture
+    - patterns
+    - migration
+    - testing
+    - conventions
+
+  read_only: true
+
+notes: ""
