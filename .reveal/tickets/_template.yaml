@@ -1,0 +1,50 @@
+version: 1
+
+ticket:
+  id: ""
+  key: ""
+  title: ""
+  project: ""
+
+  status: discovered
+
+  source:
+    system: jira
+    url: ""
+
+  problem:
+    statement: ""
+    business_context: ""
+    expected_outcome: ""
+
+  requirement:
+    summary: ""
+    functional: []
+    non_functional: []
+
+  acceptance_criteria: []
+
+  impact:
+    modules: []
+    components: []
+    integrations: []
+    risks: []
+
+  decisions: []
+
+  plan:
+    summary: ""
+    dependencies: []
+    validation_strategy: []
+
+  tasks: []
+  evidence: []
+
+  traceability:
+    requirement_to_tasks: []
+    tasks_to_evidence: []
+
+  metadata:
+    created_at: ""
+    updated_at: ""
+    last_analyzed_commit: ""
