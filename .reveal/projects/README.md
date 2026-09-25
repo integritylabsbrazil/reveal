@@ -1,37 +1,22 @@
 # Projects
 
-Reveal supports multiple target projects in the same workspace.
+A Reveal workspace can contain multiple target projects.
 
-Each project has its own configuration and persistent engineering knowledge. Project-specific settings must not be stored in the global Reveal configuration.
+Each project has its own identity, repository, technology context, permissions, guards and persistent engineering knowledge.
 
-Recommended structure:
+Project-specific knowledge must remain isolated. For example, BPM and BFF can have different architectures, technologies, conventions and access policies.
 
-```text
-.reveal/
-├── config.yaml
-├── projects/
-│   ├── <project-id>/
-│   │   ├── config.yaml
-│   │   ├── baseline.yaml
-│   │   ├── architecture.yaml
-│   │   ├── domains.yaml
-│   │   ├── modules.yaml
-│   │   ├── technologies.yaml
-│   │   ├── conventions.yaml
-│   │   └── decisions/
-│   └── ...
-├── references/
-├── tickets/
-├── tasks/
-├── evidence/
-├── current.yaml
-└── history.jsonl
-```
+## Project model
 
-A project configuration may define repository access, Jira permissions, technologies, references, agent overrides and project-specific guards.
+Each project is represented by:
 
-The global `.reveal/config.yaml` defines Reveal-wide defaults. A project configuration may override those defaults where explicitly allowed.
+- `config.yaml` — project-specific operational configuration
+- `project.yaml` — project identity and technical profile
+- `baseline.yaml` — persistent verified knowledge
+- optional architecture, domain, module and decision artifacts
 
-Project knowledge belongs to the project. For example, BPM and BFF must have independent baselines because their architecture, modules, technologies and conventions can differ.
+The global `.reveal/config.yaml` provides Reveal-wide defaults. Project configuration may override defaults where explicitly allowed.
 
-Reference projects remain read-only and are selected explicitly by the target project or task.
+## References
+
+Projects may declare other projects as references. References are read-only and are used as sources for comparison, patterns, architecture, migration and testing strategies.
