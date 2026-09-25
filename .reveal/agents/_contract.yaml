@@ -1,0 +1,36 @@
+version: 1
+
+agent:
+  id: ""
+  role: ""
+  provider: ""
+
+input:
+  project: ""
+  ticket: ""
+  task: ""
+  references: []
+  context: []
+
+permissions:
+  read: []
+  write: []
+
+guards:
+  required: []
+
+output:
+  findings: []
+  decisions: []
+  questions: []
+  artifacts: []
+  evidence: []
+  blockers: []
+
+state:
+  requested_transition: ""
+
+metadata:
+  invocation_id: ""
+  started_at: ""
+  completed_at: ""
