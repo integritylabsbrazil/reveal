@@ -10,6 +10,14 @@ from .engines import apply_analysis, apply_refinement, apply_plan
 from .tasks import load_tasks, select_next_task
 from .evidence import collect
 from .review import evaluate as evaluate_review
+from .git import git_info, has_drift
+
+
+def _expected_commit(state):
+    evidence = state.get("last_evidence") or []
+    if evidence and isinstance(evidence[0], dict):
+        return evidence[0].get("commit", "")
+    return (state.get("last_update") or {}).get("commit", "")
 
 
 def run(root, action_override=None):
@@ -19,6 +27,16 @@ def run(root, action_override=None):
     action = action_override or resolve_next_action(state, config)
     guard = evaluate(action, state, context)
     append_history(root, "RESUME_STARTED", action=action.type)
+
+    # A task must not continue against a repository state different from the
+    # state for which its previous evidence/context was produced.
+    if action.type in {"EXECUTE_TASK", "VALIDATE_TASK", "REVIEW_TASK"}:
+        expected = _expected_commit(state)
+        if expected and has_drift(root, expected):
+            reason = f"Repository drift detected: expected {expected}, current {git_info(root).get('commit', '')}."
+            update_state(root, state, next_action={"type": "RECONCILE", "description": reason})
+            append_history(root, "REPOSITORY_DRIFT", action=action.type, reason=reason)
+            return {"status": "blocked", "action": action, "guard": guard, "context": context, "reason": reason}
 
     if guard["result"] == "block":
         append_history(root, "RESUME_BLOCKED", action=action.type, reason=guard["reason"])
@@ -39,6 +57,7 @@ def run(root, action_override=None):
         result["status"] = "blocked"
         return result
 
+    source_commit = git_info(root).get("commit", "")
     provider_result = provider.invoke(
         ProviderInvocation(agent=action.agent or "", provider=action.provider or provider.name,
                            action=action.type, context=context), config)
@@ -80,7 +99,7 @@ def run(root, action_override=None):
             result["status"] = "failed"
             return result
 
-    evidence = collect(root, provider_result.__dict__, validation)
+    evidence = collect(root, provider_result.__dict__, validation, source_commit=source_commit)
     result["execution_evidence"] = evidence
     result["evidence"] = provider_result.evidence
     result["artifacts"] = provider_result.artifacts
