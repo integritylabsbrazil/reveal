@@ -1,0 +1,48 @@
+version: 1
+
+execution:
+  id: ""
+  project: ""
+  ticket: ""
+  task: ""
+  status: ready
+
+context:
+  fingerprint: ""
+  source_commit: ""
+
+branch:
+  strategy: ""
+  name: ""
+
+guards:
+  evaluated: []
+  status: pending
+
+provider:
+  agent: executor
+  name: opencode
+
+changes:
+  files: []
+  artifacts: []
+
+validation:
+  checks: []
+  results: []
+  status: pending
+
+evidence:
+  commits: []
+  tests: []
+  builds: []
+  review: []
+
+result:
+  status: ""
+  blockers: []
+  failures: []
+
+metadata:
+  started_at: ""
+  completed_at: ""
