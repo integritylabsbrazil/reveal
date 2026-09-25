@@ -8,7 +8,7 @@ def collect(root, provider_result, validation=None):
         "commit": repo.get("commit", ""),
         "branch": repo.get("branch", ""),
         "dirty": repo.get("dirty", False),
-        "changed_files": provider_result.get("artifacts", []),
+        "changed_files": repo.get("changed_files", []),
         "tests": (validation or {}).get("checks", []),
         "validation": (validation or {}).get("status", "not_run"),
         "provider_evidence": provider_result.get("evidence", []),
