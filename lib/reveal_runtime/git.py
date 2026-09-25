@@ -3,10 +3,14 @@ from pathlib import Path
 import subprocess
 
 
+def _run(root, *args):
+    p = subprocess.run(["git", *args], cwd=Path(root), text=True, capture_output=True, check=False)
+    return p.stdout.strip() if p.returncode == 0 else ""
+
+
 def git_info(root):
-    root = Path(root)
-    def run(*args):
-        p = subprocess.run(["git", *args], cwd=root, text=True, capture_output=True, check=False)
-        return p.stdout.strip() if p.returncode == 0 else ""
-    return {"commit": run("rev-parse", "HEAD"), "branch": run("branch", "--show-current"),
-            "dirty": bool(run("status", "--porcelain"))}
+    commit = _run(root, "rev-parse", "HEAD")
+    branch = _run(root, "branch", "--show-current")
+    status = _run(root, "status", "--porcelain")
+    changed = [line[3:] for line in status.splitlines() if len(line) >= 4]
+    return {"commit": commit, "branch": branch, "dirty": bool(status), "changed_files": changed}
