@@ -1,0 +1,45 @@
+version: 1
+
+task:
+  id: ""
+  key: ""
+  ticket: ""
+  project: ""
+
+  status: planned
+
+  objective: ""
+  description: ""
+
+  scope:
+    allowed: []
+    forbidden: []
+    expected_files: []
+    expected_artifacts: []
+
+  dependencies: []
+
+  acceptance:
+    criteria: []
+
+  validation:
+    commands: []
+    checks: []
+    expected_results: []
+
+  execution:
+    complexity: medium
+    risk: medium
+    autonomy: assisted
+    requires_review: true
+
+  branch:
+    strategy: ""
+    name: ""
+
+  evidence: []
+
+  metadata:
+    created_at: ""
+    updated_at: ""
+    completed_at: ""
