@@ -1,11 +1,12 @@
 """Build the normalized execution context without executing provider work."""
+from .dispatcher import resolve_next_action
 from .state import load_config, load_state
 
 
 def assemble_context(root):
     state, _ = load_state(root)
     config = load_config(root)
-    action = __import__("lib.reveal_runtime.dispatcher", fromlist=["resolve_next_action"]).resolve_next_action(state, config)
+    action = resolve_next_action(state, config)
     return {
         "workspace": {"status": state.get("status", "idle")},
         "project": state.get("project") or {},
