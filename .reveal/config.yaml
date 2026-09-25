@@ -9,6 +9,11 @@ agents:
   execution: opencode
   review: opencode
 
+providers:
+  opencode:
+    command: ""
+    timeout_seconds: 1800
+
 defaults:
   permissions:
     jira:
