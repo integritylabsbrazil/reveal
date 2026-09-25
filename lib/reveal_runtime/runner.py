@@ -11,6 +11,7 @@ from .persistence import append_history, update_state
 from .providers import ProviderInvocation, get_provider
 from .validation import validate_repository, next_status
 from .engines import apply_analysis, apply_refinement, apply_plan
+from .tasks import load_tasks, select_next_task
 
 
 def _event(root, event, **payload):
@@ -115,6 +116,13 @@ def run(root, action_override=None):
     if transition:
         update_state(root, state, status=transition,
                      next_action={"type": "", "description": ""})
+        if transition == "completed" and state.get("ticket", {}).get("key"):
+            tasks = load_tasks(root, state["ticket"]["key"])
+            nxt = select_next_task(tasks)
+            if nxt:
+                state["current_task"] = {"key": nxt["key"], "status": nxt.get("status", "ready")}
+                update_state(root, state, status="implementing",
+                             next_action={"type": "EXECUTE_TASK", "description": f"Next atomic task: {nxt['key']}"})
     else:
         update_state(root, state, next_action={"type": "", "description": ""})
     append_history(
