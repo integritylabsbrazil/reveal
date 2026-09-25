@@ -17,6 +17,7 @@ def assemble_context(root):
         "open_questions": state.get("open_questions") or [],
         "findings": state.get("findings") or [],
         "last_evidence": state.get("last_evidence") or [],
+        "permissions": {**(config.get("defaults") or {}).get("permissions", {}), "target_repository_write": False},
         "action": {
             "type": action.type,
             "agent": action.agent,
