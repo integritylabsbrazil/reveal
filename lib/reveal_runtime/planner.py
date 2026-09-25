@@ -53,6 +53,8 @@ def normalize_tasks(root, ticket_key, raw_tasks):
         raise PlanningError("Planner produced a cyclic task dependency graph.")
 
     if tasks:
-        materialize_ready_task(root, tasks[0])
-        tasks[0]["status"] = "ready"
+        ready = next((task for task in tasks if not task["dependencies"]), None)
+        if ready:
+            materialize_ready_task(root, ready)
+            ready["status"] = "ready"
     return tasks
