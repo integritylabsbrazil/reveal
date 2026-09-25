@@ -1,34 +1,33 @@
 version: 2
 
-project:
-  type: application
+reveal:
+  default_agent: opencode
 
 agents:
-  default: opencode
   analysis: opencode
   planning: opencode
   execution: opencode
   review: opencode
 
-permissions:
-  jira:
-    read: true
-    write: false
-  target_repository:
-    read: true
-    write: false
-  reveal_workspace:
-    read: true
-    write: true
+defaults:
+  permissions:
+    jira:
+      read: true
+      write: false
+    target_repository:
+      read: true
+      write: false
+    reveal_workspace:
+      read: true
+      write: true
 
-guards:
-  scope: strict
-  repository: strict
-  knowledge: strict
-  evidence: required
+  guards:
+    scope: strict
+    repository: strict
+    knowledge: strict
+    evidence: required
 
 knowledge:
-  baseline: .reveal/project/baseline.yaml
   auto_update: false
   require_guard: true
 
