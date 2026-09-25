@@ -1,0 +1,14 @@
+version: 1
+status: idle
+project: null
+ticket: null
+current_task: null
+references: []
+progress:
+  completed: []
+  pending: []
+decisions: []
+open_questions: []
+findings: []
+next_action: null
+last_update: null
