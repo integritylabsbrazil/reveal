@@ -18,8 +18,10 @@ def load_tasks(root, ticket_key):
 
 def dependencies_satisfied(task, tasks):
     by_key = {t.get("key"): t for t in tasks}
-    return all(str(by_key.get(dep, {}).get("status", "")).lower() == "completed"
-               for dep in task.get("dependencies", []))
+    return all(
+        str(by_key.get(dep, {}).get("status", "")).lower() == "completed"
+        for dep in task.get("dependencies", [])
+    )
 
 
 def select_next_task(tasks):
@@ -32,6 +34,7 @@ def select_next_task(tasks):
 
 def materialize_ready_task(root, task):
     path = Path(root) / ".reveal" / "tasks" / f"{task['key']}.yaml"
+    path.parent.mkdir(parents=True, exist_ok=True)
     task = dict(task)
     task["status"] = "ready"
     with path.open("w", encoding="utf-8") as fh:
