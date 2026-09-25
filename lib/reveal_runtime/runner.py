@@ -10,6 +10,7 @@ from .state import load_config, load_state
 from .persistence import append_history, update_state
 from .providers import ProviderInvocation, get_provider
 from .validation import validate_repository, next_status
+from .engines import apply_analysis, apply_refinement, apply_plan
 
 
 def _event(root, event, **payload):
@@ -72,6 +73,25 @@ def run(root, action_override=None):
         append_history(root, "PROVIDER_BLOCKED", action=action.type, provider=provider.name, reason=reason)
         result["status"] = "blocked"
         return result
+
+    if provider_result.status == "success":
+        if action.type == "ANALYZE_TICKET":
+            ticket = apply_analysis(root, state.get("ticket") or {}, {
+                "findings": provider_result.findings,
+                "decisions": provider_result.decisions,
+                "questions": provider_result.blockers,
+            })
+            state["ticket"] = {"key": ticket["key"], "status": ticket["status"]}
+        elif action.type == "PLAN_TICKET":
+            try:
+                ticket, tasks = apply_plan(root, state.get("ticket") or {}, {
+                    "tasks": provider_result.artifacts,
+                })
+                state["ticket"] = {"key": ticket["key"], "status": ticket["status"]}
+            except ValueError:
+                result["status"] = "blocked"
+                result["provider_result"]["blockers"] = ["Planning requires a refined ticket."]
+                return result
 
     result["evidence"] = provider_result.evidence
     result["artifacts"] = provider_result.artifacts
